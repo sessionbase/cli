@@ -21,8 +21,10 @@ program
 
 // Import and register command modules
 import { listCommand } from './commands/list.js';
+import { createLoginCommand } from './commands/login.js';
 
 program.addCommand(listCommand);
+program.addCommand(createLoginCommand());
 
 program.parseAsync(process.argv).catch((error) => {
   console.error('Error:', error.message);
