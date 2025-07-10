@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { createInterface } from 'node:readline';
 import open from 'open';
 import chalk from 'chalk';
-import { BASE_URL } from '../config.js';
+import { WEB_BASE_URL } from '../config.js';
 import { storeToken } from '../auth.js';
 
 /**
@@ -54,9 +54,9 @@ export function createLoginCommand(): Command {
           token = options.token.trim();
         } else {
           // Interactive flow: try to open browser, then prompt for token
-          const loginUrl = `${BASE_URL}/login?cli=true`;
+          const loginUrl = `${WEB_BASE_URL}/login?cli=true`;
           
-          console.log(chalk.blue('⭢ Opening https://sessionbase.ai/login/cli …'));
+          console.log(chalk.blue(`⭢ Opening ${loginUrl} …`));
           
           try {
             await open(loginUrl);
