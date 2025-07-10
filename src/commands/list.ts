@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { readdir, stat, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import chalk from 'chalk';
@@ -10,19 +10,26 @@ const CLAUDE_CODE_PATH = join(homedir(), '.claude', 'projects');
 export const listCommand = new Command('list')
   .description('List local chat sessions')
   .option('--claude', 'List Claude Code sessions')
+  .option('--path <path>', 'Filter sessions by specific directory path')
   .action(async (options) => {
     if (options.claude) {
-      await listClaudeSessions();
+      await listClaudeSessions(options.path);
     } else {
       console.log('Please specify a tool: --claude');
     }
   });
 
-async function listClaudeSessions() {
+async function listClaudeSessions(filterPath?: string) {
   try {
     if (!existsSync(CLAUDE_CODE_PATH)) {
       console.log(chalk.yellow('No Claude Code sessions found (directory does not exist)'));
       return;
+    }
+
+    // Resolve relative paths to absolute paths for comparison
+    let resolvedFilterPath: string | undefined;
+    if (filterPath) {
+      resolvedFilterPath = resolve(filterPath);
     }
 
     const projectDirs = await readdir(CLAUDE_CODE_PATH);
@@ -33,6 +40,20 @@ async function listClaudeSessions() {
       const stats = await stat(projectPath);
       
       if (stats.isDirectory()) {
+        // Decode the directory name to get the actual path
+        const decodedPath = decodeURIComponent(dir.replace(/-/g, '/'));
+        
+        // If filterPath is provided, check if this session matches
+        if (resolvedFilterPath) {
+          // Check both the original filterPath (for partial matches) and resolved path (for relative paths)
+          const matchesOriginal = decodedPath.includes(filterPath!);
+          const matchesResolved = decodedPath.includes(resolvedFilterPath);
+          
+          if (!matchesOriginal && !matchesResolved) {
+            continue;
+          }
+        }
+        
         // Look for all .jsonl files in the project directory
         try {
           const files = await readdir(projectPath);
@@ -84,7 +105,7 @@ async function listClaudeSessions() {
             }
             
             sessions.push({
-              title: `${decodeURIComponent(dir.replace(/-/g, '/'))} - ${jsonlFile}`,
+              title: `${decodedPath} - ${jsonlFile}`,
               path: sessionFile,
               lastModified: sessionStats.mtime,
               messageCount,
@@ -99,14 +120,22 @@ async function listClaudeSessions() {
     }
 
     if (sessions.length === 0) {
-      console.log(chalk.yellow('No Claude Code sessions found'));
+      if (filterPath) {
+        console.log(chalk.yellow(`No Claude Code sessions found for path: ${filterPath}`));
+      } else {
+        console.log(chalk.yellow('No Claude Code sessions found'));
+      }
       return;
     }
 
     // Sort by last modified (newest first)
     sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
-    console.log(chalk.bold.blue(`\n📋 Found ${sessions.length} Claude Code session${sessions.length === 1 ? '' : 's'}:\n`));
+    const headerText = filterPath 
+      ? `📋 Found ${sessions.length} Claude Code session${sessions.length === 1 ? '' : 's'} for path "${filterPath}":`
+      : `📋 Found ${sessions.length} Claude Code session${sessions.length === 1 ? '' : 's'}:`;
+    
+    console.log(chalk.bold.blue(`\n${headerText}\n`));
     
     sessions.forEach((session, index) => {
       const date = session.lastModified.toLocaleDateString();
