@@ -1,6 +1,6 @@
 # Sessionbase CLI
 
-CLI tool for SessionBase - manage and share browser sessions
+CLI tool for SessionBase - manage and share chat sessions
 
 ## Development
 

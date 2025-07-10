@@ -16,7 +16,7 @@ const program = new Command();
 
 program
   .name('sessionbase')
-  .description('CLI tool for SessionBase - manage and share browser sessions')
+  .description('CLI tool for SessionBase - manage and share chat sessions')
   .version(packageJson.version);
 
 // TODO: Import and register command modules
