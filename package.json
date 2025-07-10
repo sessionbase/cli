@@ -1,0 +1,26 @@
+{
+  "name": "@sessionbase/cli",
+  "version": "0.0.0-dev",
+  "private": true,
+  "type": "module",
+  "bin": { "sessionbase": "./dist/index.js" },
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "commander": "^11",
+    "chalk": "^5",
+    "ora": "^8",
+    "open": "^9",
+    "keytar": "^7",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "tsup": "^8",
+    "typescript": "^5",
+    "vitest": "^1"
+  }
+}
