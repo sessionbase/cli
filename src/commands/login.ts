@@ -82,8 +82,26 @@ export function createLoginCommand(): Command {
         // Store token securely
         await storeToken(token);
         
+        // Clear terminal and show ASCII splash screen
+        console.clear();
+        console.log();
+        console.log(chalk.gray(`███████╗███████╗███████╗███████╗██╗ ██████╗ ███╗   ██╗██████╗  █████╗ ███████╗███████╗`));
+        console.log(chalk.gray(`██╔════╝██╔════╝██╔════╝██╔════╝██║██╔═══██╗████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝`));
+        console.log(chalk.gray(`███████╗█████╗  ███████╗███████╗██║██║   ██║██╔██╗ ██║██████╔╝███████║███████╗█████╗  `));
+        console.log(chalk.gray(`╚════██║██╔══╝  ╚════██║╚════██║██║██║   ██║██║╚██╗██║██╔══██╗██╔══██║╚════██║██╔══╝  `));
+        console.log(chalk.gray(`███████║███████╗███████║███████║██║╚██████╔╝██║ ╚████║██████╔╝██║  ██║███████║███████╗`));
+        console.log(chalk.gray(`╚══════╝╚══════╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝`));
+        console.log();
+        
         // Success feedback
         console.log(chalk.green('✔ Logged in!'), chalk.dim('(token stored securely)'));
+        console.log();
+        
+        // Show help to get started
+        console.log(chalk.bold('Get started:'));
+        console.log(chalk.dim('  sessionbase --help      Show all commands'));
+        console.log(chalk.dim('  sessionbase list         List your sessions'));
+        console.log(chalk.dim('  sessionbase upload       Upload a new session'));
         
       } catch (error) {
         console.error(chalk.red('Login failed:'), error);
