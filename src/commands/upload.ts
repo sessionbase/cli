@@ -36,11 +36,18 @@ export const uploadCommand = new Command('upload')
           const lines = content.trim().split('\n').filter(line => line.trim());
           const entries = lines.map(line => JSON.parse(line));
           
+          // Extract Claude session metadata from first entry
+          const firstEntry = entries[0];
+          const claudeSessionId = firstEntry?.sessionId;
+          const claudeCwd = firstEntry?.cwd;
+          
           // Create a simple JSON structure with the entries
           sessionData = {
             messages: entries,
             title: `JSONL Import ${new Date().toISOString().split('T')[0]}`,
-            platform: 'jsonl'
+            platform: 'claude-code',
+            sessionId: claudeSessionId,
+            cwd: claudeCwd
           };
         } else {
           // Parse regular JSON
@@ -67,7 +74,9 @@ export const uploadCommand = new Command('upload')
         tokenCount: sessionData.tokenCount || 0,
         messageCount: sessionData.messages.length,
         modelName: sessionData.modelName || 'unknown',
-        platform: 'qcli'
+        platform: sessionData.platform || 'qcli',
+        ...(sessionData.sessionId && { sessionId: sessionData.sessionId }),
+        ...(sessionData.cwd && { cwd: sessionData.cwd })
       };
 
       // Make the API call
