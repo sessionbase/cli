@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { createInterface } from 'node:readline';
 import open from 'open';
 import chalk from 'chalk';
+import { renderFilled } from 'oh-my-logo';
 import { WEB_BASE_URL } from '../config.js';
 import { storeToken } from '../auth.js';
 
@@ -82,15 +83,12 @@ export function createLoginCommand(): Command {
         // Store token securely
         await storeToken(token);
         
-        // Clear terminal and show ASCII splash screen
+        // Clear terminal and show logo using oh-my-logo
         console.clear();
         console.log();
-        console.log(chalk.gray(`███████╗███████╗███████╗███████╗██╗ ██████╗ ███╗   ██╗██████╗  █████╗ ███████╗███████╗`));
-        console.log(chalk.gray(`██╔════╝██╔════╝██╔════╝██╔════╝██║██╔═══██╗████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝`));
-        console.log(chalk.gray(`███████╗█████╗  ███████╗███████╗██║██║   ██║██╔██╗ ██║██████╔╝███████║███████╗█████╗  `));
-        console.log(chalk.gray(`╚════██║██╔══╝  ╚════██║╚════██║██║██║   ██║██║╚██╗██║██╔══██╗██╔══██║╚════██║██╔══╝  `));
-        console.log(chalk.gray(`███████║███████╗███████║███████║██║╚██████╔╝██║ ╚████║██████╔╝██║  ██║███████║███████╗`));
-        console.log(chalk.gray(`╚══════╝╚══════╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝`));
+        await renderFilled('SESSIONBASE', {
+          palette: 'grad-blue'
+        });
         console.log();
         
         // Success feedback
