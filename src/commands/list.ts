@@ -31,135 +31,143 @@ async function listClaudeSessions(filterPath?: string) {
       return;
     }
 
-    // Resolve relative paths to absolute paths for comparison
-    let resolvedFilterPath: string | undefined;
-    if (filterPath) {
-      resolvedFilterPath = resolve(filterPath);
+    const targetPath = filterPath ? resolve(filterPath) : process.cwd();
+    
+    // Encode the target path in the same way Claude Code does
+    const encodedPath = targetPath.replace(/\//g, '-');
+    const projectDir = join(CLAUDE_CODE_PATH, encodedPath);
+
+    if (!existsSync(projectDir)) {
+      console.log(chalk.yellow(`No Claude Code sessions found for project: ${targetPath}`));
+      return;
     }
 
-    const projectDirs = await readdir(CLAUDE_CODE_PATH);
-    const sessions = [];
+    const files = await readdir(projectDir);
+    const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
 
-    for (const dir of projectDirs) {
-      const projectPath = join(CLAUDE_CODE_PATH, dir);
-      const stats = await stat(projectPath);
+    if (jsonlFiles.length === 0) {
+      console.log(chalk.yellow(`No Claude Code sessions found for project: ${targetPath}`));
+      return;
+    }
+
+    const sessions = [];
+    
+    for (const jsonlFile of jsonlFiles) {
+      const sessionFile = join(projectDir, jsonlFile);
       
-      if (stats.isDirectory()) {
-        // Decode the directory name to get the actual path
-        const decodedPath = decodeURIComponent(dir.replace(/-/g, '/'));
+      try {
+        const stats = await stat(sessionFile);
+        const sessionData = await parseClaudeSession(sessionFile);
         
-        // If filterPath is provided, check if this session matches
-        if (resolvedFilterPath) {
-          // Check both the original filterPath (for partial matches) and resolved path (for relative paths)
-          const matchesOriginal = decodedPath.includes(filterPath!);
-          const matchesResolved = decodedPath.includes(resolvedFilterPath);
-          
-          if (!matchesOriginal && !matchesResolved) {
-            continue;
-          }
-        }
-        
-        // Look for all .jsonl files in the project directory
-        try {
-          const files = await readdir(projectPath);
-          const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
-          
-          for (const jsonlFile of jsonlFiles) {
-            const sessionFile = join(projectPath, jsonlFile);
-            const sessionStats = await stat(sessionFile);
-            
-            // Read and parse the jsonl file
-            const content = await readFile(sessionFile, 'utf-8');
-            const lines = content.trim().split('\n').filter(line => line.trim());
-            const messageCount = lines.length;
-            
-            // Get first message preview
-            let firstMessagePreview = '';
-            if (lines.length > 0) {
-              try {
-                const firstMessage = JSON.parse(lines[0]);
-                if (firstMessage.message && firstMessage.message.content) {
-                  // Extract text content, handling both string and array formats
-                  let text = '';
-                  const content = firstMessage.message.content;
-                  
-                  if (typeof content === 'string') {
-                    text = content;
-                  } else if (Array.isArray(content)) {
-                    const textContent = content.find(c => c.type === 'text');
-                    text = textContent?.text || '';
-                  }
-                  
-                  // Truncate and clean up the preview
-                  if (text) {
-                    firstMessagePreview = text
-                      .replace(/\n/g, ' ')
-                      .replace(/\s+/g, ' ')
-                      .trim()
-                      .substring(0, 100);
-                    
-                    if (text.length > 100) {
-                      firstMessagePreview += '...';
-                    }
-                  }
-                }
-              } catch (error) {
-                // Skip if we can't parse the first message
-                firstMessagePreview = '';
-              }
-            }
-            
-            sessions.push({
-              title: `${decodedPath} - ${jsonlFile}`,
-              path: sessionFile,
-              lastModified: sessionStats.mtime,
-              messageCount,
-              firstMessagePreview
-            });
-          }
-        } catch (error) {
-          // Skip directories we can't read
-          continue;
-        }
+        sessions.push({
+          sessionName: jsonlFile.replace('.jsonl', ''),
+          filePath: sessionFile,
+          projectPath: targetPath,
+          lastModified: stats.mtime,
+          messageCount: sessionData.messageCount,
+          toolCalls: sessionData.toolCalls,
+          firstMessagePreview: sessionData.firstMessagePreview
+        });
+      } catch (error) {
+        // Skip sessions we can't parse
+        continue;
       }
     }
 
     if (sessions.length === 0) {
-      if (filterPath) {
-        console.log(chalk.yellow(`No Claude Code sessions found for path: ${filterPath}`));
-      } else {
-        console.log(chalk.yellow('No Claude Code sessions found'));
-      }
+      console.log(chalk.yellow(`No valid Claude Code sessions found for project: ${targetPath}`));
       return;
     }
 
     // Sort by last modified (newest first)
     sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
-    const headerText = filterPath 
-      ? `📋 Found ${sessions.length} Claude Code session${sessions.length === 1 ? '' : 's'} for path "${filterPath}":`
-      : `📋 Found ${sessions.length} Claude Code session${sessions.length === 1 ? '' : 's'}:`;
-    
-    console.log(chalk.bold.blue(`\n${headerText}\n`));
+    console.log(chalk.bold.blue(`\n📋 Found ${sessions.length} Claude Code session${sessions.length === 1 ? '' : 's'} for ${targetPath}:\n`));
     
     sessions.forEach((session, index) => {
       const date = session.lastModified.toLocaleDateString();
       const time = session.lastModified.toLocaleTimeString();
       
-      console.log(chalk.bold.white(`${index + 1}. ${session.title}`));
+      console.log(chalk.bold.white(`${index + 1}. ${session.sessionName}`));
       console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
       
       if (session.firstMessagePreview) {
         console.log(chalk.cyan(`   💭 "${session.firstMessagePreview}"`));
       }
       
-      console.log(chalk.dim(`   📁 ${session.path}`));
+      if (session.toolCalls > 0) {
+        console.log(chalk.magenta(`   🔧 ${session.toolCalls} tool calls`));
+      }
+      
+      console.log(chalk.dim(`   📁 ${session.filePath}`));
       console.log(''); // Empty line for spacing
     });
 
   } catch (error) {
     console.error(chalk.red('Error listing Claude sessions:'), error.message);
   }
+}
+
+async function parseClaudeSession(filePath: string) {
+  const content = await readFile(filePath, 'utf-8');
+  const lines = content.trim().split('\n').filter(line => line.trim());
+  
+  if (lines.length === 0) {
+    throw new Error('Empty session file');
+  }
+  
+  let toolCalls = 0;
+  let firstMessagePreview = '';
+  
+  // Count tool calls and get first message preview
+  for (let i = 0; i < lines.length; i++) {
+    try {
+      const message = JSON.parse(lines[i]);
+      
+      // Count tool calls - look for tool_use content
+      if (message.message?.content && Array.isArray(message.message.content)) {
+        const toolUse = message.message.content.find(c => c.type === 'tool_use');
+        if (toolUse) {
+          toolCalls++;
+        }
+      }
+      
+      // Get first user message preview
+      if (!firstMessagePreview && message.message?.role === 'user' && message.message?.content) {
+        let text = '';
+        const content = message.message.content;
+        
+        if (typeof content === 'string') {
+          text = content;
+        } else if (Array.isArray(content)) {
+          const textContent = content.find(c => c.type === 'text');
+          text = textContent?.text || '';
+        }
+        
+        // Clean up and truncate the preview
+        if (text) {
+          firstMessagePreview = text
+            .replace(/\n/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 100);
+          
+          if (text.length > 100) {
+            firstMessagePreview += '...';
+          }
+        }
+      }
+    } catch (error) {
+      // Skip lines we can't parse
+      continue;
+    }
+  }
+  
+  return {
+    messageCount: lines.length,
+    toolCalls,
+    firstMessagePreview
+  };
 }
 
 async function listGeminiSessions(filterPath?: string) {
