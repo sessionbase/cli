@@ -79,8 +79,8 @@ async function listClaudeSessions(filterPath?: string) {
       return;
     }
 
-    // Sort by last modified (newest first)
-    sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+    // Sort by last modified (oldest first, newest at bottom)
+    sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
 
     console.log(chalk.bold.blue(`\n📋 Found ${sessions.length} Claude Code session${sessions.length === 1 ? '' : 's'} for ${targetPath}:\n`));
     
@@ -88,7 +88,7 @@ async function listClaudeSessions(filterPath?: string) {
       const date = session.lastModified.toLocaleDateString();
       const time = session.lastModified.toLocaleTimeString();
       
-      console.log(chalk.bold.white(`${index + 1}. ${session.sessionName}`));
+      console.log(chalk.bold.white(`${sessions.length - index}. ${session.sessionName}`));
       console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
       
       if (session.firstMessagePreview) {
@@ -224,8 +224,8 @@ async function listGeminiSessions(filterPath?: string) {
       return;
     }
 
-    // Sort by last modified (newest first)
-    sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+    // Sort by last modified (oldest first, newest at bottom)
+    sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
 
     console.log(chalk.bold.blue(`\n🔷 Found ${sessions.length} Gemini CLI session${sessions.length === 1 ? '' : 's'} for ${projectPath}:\n`));
     
@@ -233,7 +233,7 @@ async function listGeminiSessions(filterPath?: string) {
       const date = session.lastModified.toLocaleDateString();
       const time = session.lastModified.toLocaleTimeString();
       
-      console.log(chalk.bold.white(`${index + 1}. ${session.tag}`));
+      console.log(chalk.bold.white(`${sessions.length - index}. ${session.tag}`));
       console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
       
       if (session.firstMessagePreview) {
