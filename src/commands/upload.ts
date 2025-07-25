@@ -51,7 +51,24 @@ export const uploadCommand = new Command('upload')
           };
         } else {
           // Parse regular JSON
-          sessionData = JSON.parse(content);
+          const parsed = JSON.parse(content);
+          
+          // Check if it's Gemini CLI format (JSON array with role/parts structure)
+          if (Array.isArray(parsed) && parsed.length > 0 && 
+              parsed.some(msg => 
+                msg.role && ['user', 'model'].includes(msg.role) && 
+                msg.parts && Array.isArray(msg.parts) &&
+                msg.parts.some(part => part.text || part.functionCall || part.functionResponse)
+              )) {
+            // Wrap Gemini CLI array in standard format
+            sessionData = {
+              messages: parsed,
+              title: `Gemini CLI Session ${new Date().toISOString().split('T')[0]}`,
+              platform: 'gemini-cli'
+            };
+          } else {
+            sessionData = parsed;
+          }
         }
       } catch (error) {
         spinner.fail(`Invalid ${isJsonl ? 'JSONL' : 'JSON'} in ${filePath}: ${error.message}`);
@@ -64,7 +81,7 @@ export const uploadCommand = new Command('upload')
         process.exit(1);
       }
 
-      // Build the payload
+      // Build the payload (same for all formats)
       const payload = {
         messages: sessionData.messages,
         isPrivate: options.private || false,
