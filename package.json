@@ -21,10 +21,11 @@
     "oh-my-logo": "^0.1.0",
     "open": "^9",
     "ora": "^8",
+    "sqlite3": "^5.1.7",
     "zod": "^3"
   },
   "devDependencies": {
-    "@types/node": "^24.0.12",
+    "@types/node": "^24.1.0",
     "tsup": "^8",
     "tsx": "^4.20.3",
     "typescript": "^5",

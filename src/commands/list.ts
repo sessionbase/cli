@@ -5,14 +5,17 @@ import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import chalk from 'chalk';
+import sqlite3 from 'sqlite3';
 
 const CLAUDE_CODE_PATH = join(homedir(), '.claude', 'projects');
 const GEMINI_CLI_PATH = join(homedir(), '.gemini', 'tmp');
+const Q_DATABASE_PATH = join(homedir(), 'Library/Application Support/amazon-q/data.sqlite3');
 
 export const listCommand = new Command('list')
   .description('List local chat sessions')
   .option('--claude', 'List Claude Code sessions')
   .option('--gemini', 'List Gemini CLI sessions')
+  .option('--qchat', 'List Amazon Q Chat sessions')
   .option('--path <path>', 'Filter sessions by specific directory path')
   .option('--all', 'List sessions from all projects')
   .action(async (options) => {
@@ -20,8 +23,10 @@ export const listCommand = new Command('list')
       await listClaudeSessions(options.path, options.all);
     } else if (options.gemini) {
       await listGeminiSessions(options.path, options.all);
+    } else if (options.qchat) {
+      await listQChatSessions(options.path, options.all);
     } else {
-      console.log('Please specify a tool: --claude or --gemini');
+      console.log('Please specify a tool: --claude, --gemini, or --qchat');
     }
   });
 
@@ -532,5 +537,262 @@ async function parseGeminiSessionWithContext(filePath: string) {
     toolCalls,
     firstMessagePreview,
     projectPath
+  };
+}
+
+async function listQChatSessions(filterPath?: string, showAll?: boolean) {
+  try {
+    if (!existsSync(Q_DATABASE_PATH)) {
+      console.log(chalk.yellow('No Amazon Q Chat sessions found (Q CLI not installed or no conversations yet)'));
+      return;
+    }
+
+    let allSessions = [];
+
+    if (showAll) {
+      // List all conversations from the database
+      const conversations = await readQDatabase();
+      
+      for (const conversation of conversations) {
+        try {
+          const sessionData = parseQConversation(conversation.conversationData);
+          
+          allSessions.push({
+            conversationName: 'Q Chat Session',
+            filePath: `Q Database (${conversation.conversationId.substring(0, 8)}...)`,
+            projectPath: conversation.directoryPath,
+            lastModified: new Date(sessionData.lastActivity),
+            messageCount: sessionData.messageCount,
+            toolCalls: sessionData.toolCalls,
+            firstMessagePreview: sessionData.firstMessagePreview,
+            model: sessionData.model,
+            conversationId: conversation.conversationId
+          });
+        } catch (error) {
+          // Skip conversations we can't parse
+          continue;
+        }
+      }
+    } else {
+      // Single project (current behavior)
+      const targetPath = filterPath ? resolve(filterPath) : process.cwd();
+      const conversation = await readQDatabase(targetPath);
+      
+      if (!conversation) {
+        console.log(chalk.yellow(`No Amazon Q Chat session found for project: ${targetPath}`));
+        return;
+      }
+
+      try {
+        const sessionData = parseQConversation(conversation.conversationData);
+        
+        allSessions.push({
+          conversationName: 'Q Chat Session',
+          filePath: `Q Database (${conversation.conversationId.substring(0, 8)}...)`,
+          projectPath: targetPath,
+          lastModified: new Date(sessionData.lastActivity),
+          messageCount: sessionData.messageCount,
+          toolCalls: sessionData.toolCalls,
+          firstMessagePreview: sessionData.firstMessagePreview,
+          model: sessionData.model,
+          conversationId: conversation.conversationId
+        });
+      } catch (error) {
+        console.log(chalk.yellow(`Failed to parse Q Chat session for project: ${targetPath}`));
+        return;
+      }
+    }
+
+    if (allSessions.length === 0) {
+      const scope = showAll ? 'all projects' : (filterPath || process.cwd());
+      console.log(chalk.yellow(`No valid Amazon Q Chat sessions found for ${scope}`));
+      return;
+    }
+
+    // Sort by last modified (oldest first, newest at bottom)
+    allSessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
+
+    const scope = showAll ? 'all projects' : (filterPath || process.cwd());
+    console.log(chalk.bold.blue(`\n🤖 Found ${allSessions.length} Amazon Q Chat session${allSessions.length === 1 ? '' : 's'} for ${scope}:\n`));
+    
+    if (showAll) {
+      // Group by project for better readability
+      const sessionsByProject = allSessions.reduce((acc, session) => {
+        if (!acc[session.projectPath]) {
+          acc[session.projectPath] = [];
+        }
+        acc[session.projectPath].push(session);
+        return acc;
+      }, {});
+
+      let totalIndex = 0;
+      Object.entries(sessionsByProject).forEach(([projectPath, sessions]) => {
+        console.log(chalk.bold.yellow(`\n${projectPath}:`));
+        sessions.forEach((session) => {
+          totalIndex++;
+          const date = session.lastModified.toLocaleDateString();
+          const time = session.lastModified.toLocaleTimeString();
+          
+          console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
+          
+          if (session.firstMessagePreview) {
+            console.log(chalk.cyan(`   💭 "${session.firstMessagePreview}"`));
+          }
+          
+          if (session.toolCalls > 0) {
+            console.log(chalk.magenta(`   🔧 ${session.toolCalls} tool calls`));
+          }
+          
+          if (session.model) {
+            console.log(chalk.blue(`   🤖 ${session.model.replace('CLAUDE_SONNET_4_20250514_V1_0', 'Claude Sonnet 4')}`));
+          }
+          
+          console.log(chalk.dim(`   📁 ${session.filePath}`));
+          console.log(chalk.dim(`   🆔 ${session.conversationId}`));
+          console.log(''); // Empty line for spacing
+        });
+      });
+    } else {
+      allSessions.forEach((session, index) => {
+        const date = session.lastModified.toLocaleDateString();
+        const time = session.lastModified.toLocaleTimeString();
+        
+        console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
+        
+        if (session.firstMessagePreview) {
+          console.log(chalk.cyan(`   💭 "${session.firstMessagePreview}"`));
+        }
+        
+        if (session.toolCalls > 0) {
+          console.log(chalk.magenta(`   🔧 ${session.toolCalls} tool calls`));
+        }
+        
+        if (session.model) {
+          console.log(chalk.blue(`   🤖 ${session.model.replace('CLAUDE_SONNET_4_20250514_V1_0', 'Claude Sonnet 4')}`));
+        }
+        
+        console.log(chalk.dim(`   📁 ${session.filePath}`));
+        console.log(chalk.dim(`   🆔 ${session.conversationId}`));
+        console.log(''); // Empty line for spacing
+      });
+    }
+
+  } catch (error) {
+    console.error(chalk.red('Error listing Amazon Q Chat sessions:'), error.message);
+  }
+}
+
+function readQDatabase(filterPath?: string): Promise<any[] | any> {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(Q_DATABASE_PATH, sqlite3.OPEN_READONLY);
+    
+    if (filterPath) {
+      // Query for specific path
+      db.get('SELECT key, value FROM conversations WHERE key = ?', [filterPath], (err, row) => {
+        if (err) {
+          db.close();
+          reject(err);
+          return;
+        }
+        
+        if (!row) {
+          db.close();
+          resolve(null);
+          return;
+        }
+        
+        try {
+          const conversationData = JSON.parse(row.value);
+          db.close();
+          resolve({
+            directoryPath: row.key,
+            conversationId: conversationData.conversation_id,
+            conversationData
+          });
+        } catch (error) {
+          db.close();
+          reject(new Error(`Failed to parse conversation data: ${error.message}`));
+        }
+      });
+    } else {
+      // Query for all conversations
+      db.all('SELECT key, value FROM conversations', [], (err, rows) => {
+        if (err) {
+          db.close();
+          reject(err);
+          return;
+        }
+        
+        const conversations = [];
+        
+        for (const row of rows) {
+          try {
+            const conversationData = JSON.parse(row.value);
+            conversations.push({
+              directoryPath: row.key,
+              conversationId: conversationData.conversation_id,
+              conversationData
+            });
+          } catch (error) {
+            // Skip conversations we can't parse
+            continue;
+          }
+        }
+        
+        db.close();
+        resolve(conversations);
+      });
+    }
+  });
+}
+
+function parseQConversation(conversationData: any) {
+  const history = conversationData.history || [];
+  let messageCount = 0;
+  let toolCalls = 0;
+  let firstMessagePreview = '';
+  let lastActivity = Date.now();
+
+  // Parse the conversation history
+  for (const turn of history) {
+    if (Array.isArray(turn) && turn.length >= 2) {
+      const [userMessage, assistantMessage] = turn;
+      
+      messageCount += 2; // User + Assistant
+      
+      // Extract first user message preview
+      if (!firstMessagePreview && userMessage?.content?.Prompt?.prompt) {
+        const text = userMessage.content.Prompt.prompt;
+        firstMessagePreview = text
+          .replace(/\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .substring(0, 100);
+        
+        if (text.length > 100) {
+          firstMessagePreview += '...';
+        }
+      }
+      
+      // Count tool calls (check for Response with message_id, indicates tool usage)
+      if (assistantMessage?.Response?.message_id) {
+        // This is a rough heuristic - could be improved by checking the actual content
+        const content = assistantMessage.Response.content || '';
+        if (content.includes('🛠️') || content.includes('tool')) {
+          toolCalls++;
+        }
+      }
+    }
+  }
+
+  // Extract model information
+  const model = conversationData.model || 'Unknown Model';
+
+  return {
+    messageCount,
+    toolCalls,
+    firstMessagePreview,
+    lastActivity,
+    model
   };
 }
