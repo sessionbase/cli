@@ -288,7 +288,7 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
       <Box marginBottom={1} borderStyle="single" borderColor="cyan" paddingX={1}>
         <Text color="cyan" bold>🔍 {platformFilterText}</Text>
         <Spacer />
-        <Text color="gray">🔷{platformCounts.claude} • 🔶{platformCounts.gemini} • 🤖{platformCounts.qchat}</Text>
+        <Text color="gray">Claude {platformCounts.claude} • Gemini {platformCounts.gemini} • QChat {platformCounts.qchat}</Text>
       </Box>
       
       {/* Scroll indicators */}
@@ -353,9 +353,9 @@ interface SessionItemProps {
 
 const SessionItem: React.FC<SessionItemProps> = ({ session, isSelected, index }) => {
   const platformInfo = {
-    claude: { emoji: '🔷', name: 'Claude Code', color: 'blue' as const },
-    gemini: { emoji: '🔶', name: 'Gemini CLI', color: 'magenta' as const },
-    qchat: { emoji: '🤖', name: 'Q Chat', color: 'cyan' as const }
+    claude: { emoji: '[C]', name: 'Claude Code', color: 'yellow' as const },
+    gemini: { emoji: '[G]', name: 'Gemini CLI', color: 'blue' as const },
+    qchat: { emoji: '[Q]', name: 'Q Chat', color: 'cyan' as const }
   }[session.platform];
 
   const date = session.lastModified.toLocaleDateString();
@@ -384,13 +384,13 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isSelected, index })
       {/* Line 1: Index, Platform, and Session Name */}
       <Box>
         <Text color={isSelected ? 'green' : 'white'} bold>
-          {isSelected ? '→ ' : '  '}{index}. {platformInfo.emoji} 
+          {isSelected ? '→ ' : '  '}{index}. 
         </Text>
         <Text color={platformInfo.color} bold>
-          [{platformInfo.name}]  
+          [{platformInfo.name}]
         </Text>
         <Text color={isSelected ? 'green' : 'white'} bold>
-          {displayName}
+          {" " + displayName}
         </Text>
       </Box>
       
