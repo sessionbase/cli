@@ -14,6 +14,7 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<'cwd' | 'all'>('cwd');
+  const [platformFilter, setPlatformFilter] = useState<'all' | 'claude' | 'gemini' | 'qchat'>('all');
   
   // Terminal dimensions
   const { stdout } = useStdout();
@@ -24,10 +25,10 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
   const [viewportStart, setViewportStart] = useState(0);
   
   // Calculate viewport size based on terminal height - balanced approach
-  // Reserve space for: header (2) + scroll indicators (4) + footer (3) + buffer (3) = 12 lines
-  const RESERVED_LINES = 14;
-  const SESSION_ITEM_HEIGHT = 6; // Approximate height of each session item
-  const VIEWPORT_SIZE = Math.max(1, Math.floor((terminalHeight - RESERVED_LINES) / SESSION_ITEM_HEIGHT));
+  // Reserve space for: header (6) + scroll indicators (2) + footer (4) + buffer (2) = 14 lines
+  const RESERVED_LINES = 17;
+  const SESSION_ITEM_HEIGHT = 3; // Exact height of each session item (now standardized)
+  const VIEWPORT_SIZE = Math.max(1, Math.floor((terminalHeight - RESERVED_LINES) / SESSION_ITEM_HEIGHT)) - 1;
 
   // Update terminal dimensions when they change
   useEffect(() => {
@@ -53,6 +54,14 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
   useEffect(() => {
     loadSessions();
   }, [scope]);
+
+  // Filter sessions by platform
+  const filteredSessions = useMemo(() => {
+    if (platformFilter === 'all') {
+      return allSessions;
+    }
+    return allSessions.filter(session => session.platform === platformFilter);
+  }, [allSessions, platformFilter]);
 
   const loadSessions = async () => {
     setIsLoading(true);
@@ -95,6 +104,19 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
     }
   };
 
+  // Reset selection when platform filter changes
+  useEffect(() => {
+    if (filteredSessions.length > 0) {
+      const newIndex = Math.max(0, filteredSessions.length - 1);
+      setSelectedIndex(newIndex);
+      const initialViewportStart = Math.max(0, newIndex - VIEWPORT_SIZE + 1);
+      setViewportStart(initialViewportStart);
+    } else {
+      setSelectedIndex(0);
+      setViewportStart(0);
+    }
+  }, [filteredSessions, VIEWPORT_SIZE]);
+
   // Update viewport to ensure selected index is visible
   const updateViewport = (newSelectedIndex: number, totalSessions: number) => {
     setViewportStart(currentViewportStart => {
@@ -123,26 +145,26 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
 
   // Calculate visible sessions
   const visibleSessions = useMemo(() => {
-    const end = Math.min(viewportStart + VIEWPORT_SIZE, allSessions.length);
-    return allSessions.slice(viewportStart, end);
-  }, [allSessions, viewportStart]);
+    const end = Math.min(viewportStart + VIEWPORT_SIZE, filteredSessions.length);
+    return filteredSessions.slice(viewportStart, end);
+  }, [filteredSessions, viewportStart]);
 
   // Simple keyboard input handling
   useInput((input, key) => {
     if (key.upArrow && selectedIndex > 0) {
       const newIndex = selectedIndex - 1;
       setSelectedIndex(newIndex);
-      updateViewport(newIndex, allSessions.length);
+      updateViewport(newIndex, filteredSessions.length);
     }
     
-    if (key.downArrow && selectedIndex < allSessions.length - 1) {
+    if (key.downArrow && selectedIndex < filteredSessions.length - 1) {
       const newIndex = selectedIndex + 1;
       setSelectedIndex(newIndex);
-      updateViewport(newIndex, allSessions.length);
+      updateViewport(newIndex, filteredSessions.length);
     }
     
-    if (key.return && allSessions[selectedIndex]) {
-      onUpload(allSessions[selectedIndex]);
+    if (key.return && filteredSessions[selectedIndex]) {
+      onUpload(filteredSessions[selectedIndex]);
     }
     
     if (input === 'q') {
@@ -153,12 +175,29 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
       loadSessions();
     }
     
-    if (input === 'a' && scope === 'cwd') {
+    if (input === 'g' && scope === 'cwd') {
       setScope('all');
     }
     
     if (input === 'c' && scope === 'all') {
       setScope('cwd');
+    }
+
+    // Platform filtering shortcuts
+    if (input === '1') {
+      setPlatformFilter('all');
+    }
+    
+    if (input === '2') {
+      setPlatformFilter('claude');
+    }
+    
+    if (input === '3') {
+      setPlatformFilter('gemini');
+    }
+    
+    if (input === '4') {
+      setPlatformFilter('qchat');
     }
   });
 
@@ -186,37 +225,76 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
           📭 No sessions found {scope === 'cwd' ? 'in current directory' : 'anywhere'}
         </Text>
         <Text color="gray">
-          {scope === 'cwd' ? "Press 'a' to search all directories, " : ""}Press 'r' to refresh, 'q' to quit
+          {scope === 'cwd' ? "Press 'g' to search all directories, " : ""}Press 'r' to refresh, 'q' to quit
+        </Text>
+      </Box>
+    );
+  }
+
+  if (filteredSessions.length === 0) {
+    const platformNames = {
+      claude: 'Claude',
+      gemini: 'Gemini',  
+      qchat: 'Q Chat'
+    };
+    
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text color="yellow">
+          📭 No {platformNames[platformFilter]} sessions found {scope === 'cwd' ? 'in current directory' : 'anywhere'}
+        </Text>
+        <Text color="gray">
+          Press '1' for all platforms, '2' for Claude, '3' for Gemini, '4' for Q
+        </Text>
+        <Text color="gray">
+          {scope === 'cwd' ? "'g' for global search, " : ""}'r' to refresh, 'q' to quit
         </Text>
       </Box>
     );
   }
 
   const scopeText = scope === 'all' ? 'all projects' : process.cwd();
-  const totalSessions = allSessions.length;
-  const totalPages = Math.ceil(totalSessions / VIEWPORT_SIZE);
+  const totalFilteredSessions = filteredSessions.length;
+  const totalPages = Math.ceil(totalFilteredSessions / VIEWPORT_SIZE);
   
   // Calculate current page based on the viewport start position
   // Since we start at the bottom (most recent), we need to calculate from the end
-  const currentPage = Math.max(1, totalPages - Math.floor((totalSessions - viewportStart - 1) / VIEWPORT_SIZE));
+  const currentPage = Math.max(1, totalPages - Math.floor((totalFilteredSessions - viewportStart - 1) / VIEWPORT_SIZE));
+
+  // Platform filter display
+  const platformFilterText = platformFilter === 'all' ? 'All Platforms' : 
+    platformFilter === 'claude' ? 'Claude' :
+    platformFilter === 'gemini' ? 'Gemini' : 'Q Chat';
+  const platformCounts = {
+    claude: allSessions.filter(s => s.platform === 'claude').length,
+    gemini: allSessions.filter(s => s.platform === 'gemini').length,
+    qchat: allSessions.filter(s => s.platform === 'qchat').length
+  };
 
   return (
     <Box flexDirection="column" padding={1}>
       {/* Header */}
       <Box marginBottom={1}>
         <Text color="blue" bold>
-          📋 SessionBase - {totalSessions} session{totalSessions === 1 ? '' : 's'} ({scopeText})
+          📋 SessionBase - {allSessions.length} session{allSessions.length === 1 ? '' : 's'} ({scopeText})
         </Text>
         <Spacer />
         <Text color="gray">
-          Page {currentPage}/{totalPages} • Showing {viewportStart + 1}-{Math.min(viewportStart + VIEWPORT_SIZE, totalSessions)} of {totalSessions}
+          Page {currentPage}/{totalPages} • Showing {viewportStart + 1}-{Math.min(viewportStart + VIEWPORT_SIZE, totalFilteredSessions)} of {totalFilteredSessions}
         </Text>
+      </Box>
+      
+      {/* Platform Filter Header */}
+      <Box marginBottom={1} borderStyle="single" borderColor="cyan" paddingX={1}>
+        <Text color="cyan" bold>🔍 {platformFilterText}</Text>
+        <Spacer />
+        <Text color="gray">🔷{platformCounts.claude} • 🔶{platformCounts.gemini} • 🤖{platformCounts.qchat}</Text>
       </Box>
       
       {/* Scroll indicators */}
       {viewportStart > 0 && (
-        <Box justifyContent="center" marginY={1}>
-          <Text color="gray">↑ More sessions above</Text>
+        <Box justifyContent="center">
+          <Text color="gray">↑ More above</Text>
         </Box>
       )}
       
@@ -229,16 +307,16 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
               key={`${session.platform}-${session.filePath}`}
               session={session}
               isSelected={actualIndex === selectedIndex}
-              index={totalSessions - actualIndex}
+              index={totalFilteredSessions - actualIndex}
             />
           );
         })}
       </Box>
       
       {/* Scroll indicators */}
-      {viewportStart + VIEWPORT_SIZE < totalSessions && (
-        <Box justifyContent="center" marginY={1}>
-          <Text color="gray">↓ More sessions below</Text>
+      {viewportStart + VIEWPORT_SIZE < totalFilteredSessions && (
+        <Box justifyContent="center">
+          <Text color="gray">↓ More below</Text>
         </Box>
       )}
       
@@ -248,14 +326,17 @@ export const SessionList: React.FC<SessionListProps> = ({ onUpload, onExit }) =>
           <Text color="green">
             ↑/↓ Navigate • Enter Upload • q Quit • r Refresh
           </Text>
+          <Text color="green">
+            1 All • 2 Claude • 3 Gemini • 4 Q Chat
+          </Text>
           {scope === 'cwd' && (
             <Text color="green">
-              a Show all directories • c Show current directory only
+              g Global search • c Current directory only
             </Text>
           )}
           {scope === 'all' && (
             <Text color="green">
-              c Show current directory only
+              c Current directory only
             </Text>
           )}
         </Box>
@@ -271,20 +352,26 @@ interface SessionItemProps {
 }
 
 const SessionItem: React.FC<SessionItemProps> = ({ session, isSelected, index }) => {
-  const platformEmoji = {
-    claude: '🔷',
-    gemini: '🔶', 
-    qchat: '🤖'
+  const platformInfo = {
+    claude: { emoji: '🔷', name: 'Claude Code', color: 'blue' as const },
+    gemini: { emoji: '🔶', name: 'Gemini CLI', color: 'magenta' as const },
+    qchat: { emoji: '🤖', name: 'Q Chat', color: 'cyan' as const }
   }[session.platform];
-  
-  const platformColor = {
-    claude: 'blue',
-    gemini: 'magenta',
-    qchat: 'cyan'
-  }[session.platform] as any;
 
   const date = session.lastModified.toLocaleDateString();
   const time = session.lastModified.toLocaleTimeString();
+
+  // Truncate session name if too long
+  const maxNameLength = 50;
+  const displayName = session.sessionName.length > maxNameLength 
+    ? session.sessionName.substring(0, maxNameLength) + '...'
+    : session.sessionName;
+
+  // Truncate project path for better display
+  const maxPathLength = 60;
+  const displayPath = session.projectPath.length > maxPathLength
+    ? '...' + session.projectPath.substring(session.projectPath.length - maxPathLength)
+    : session.projectPath;
 
   return (
     <Box
@@ -294,51 +381,39 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isSelected, index })
       padding={isSelected ? 1 : 0}
       marginY={0}
     >
-      {/* Main session info */}
+      {/* Line 1: Index, Platform, and Session Name */}
       <Box>
         <Text color={isSelected ? 'green' : 'white'} bold>
-          {isSelected ? '→ ' : '  '}{index}. {platformEmoji} {session.sessionName}
+          {isSelected ? '→ ' : '  '}{index}. {platformInfo.emoji} 
+        </Text>
+        <Text color={platformInfo.color} bold>
+          [{platformInfo.name}]  
+        </Text>
+        <Text color={isSelected ? 'green' : 'white'} bold>
+          {displayName}
         </Text>
       </Box>
       
-      {/* Metadata row */}
+      {/* Line 2: Metadata and Project Path */}
       <Box marginLeft={isSelected ? 0 : 2}>
         <Text color="gray">
-          💬 {session.messageCount} messages • 📅 {date} {time}
+          💬 {session.messageCount} msgs • 🔧 {session.toolCalls} tools • 📅 {date}
         </Text>
-        {session.toolCalls > 0 && (
-          <Text color="magenta"> • 🔧 {session.toolCalls} tools</Text>
-        )}
+        <Text color={platformInfo.color}> • 📁 {displayPath}</Text>
       </Box>
       
-      {/* Preview */}
-      {session.firstMessagePreview && (
-        <Box marginLeft={isSelected ? 0 : 2}>
+      {/* Line 3: Preview or Model info */}
+      <Box marginLeft={isSelected ? 0 : 2}>
+        {session.firstMessagePreview ? (
           <Text color="cyan">💭 "{session.firstMessagePreview}"</Text>
-        </Box>
-      )}
-      
-      {/* Project path */}
-      <Box marginLeft={isSelected ? 0 : 2}>
-        <Text color={platformColor}>📁 {session.projectPath}</Text>
-      </Box>
-      
-      {/* File path */}
-      <Box marginLeft={isSelected ? 0 : 2}>
-        <Text color="dim">🗂️  {session.filePath}</Text>
-      </Box>
-      
-      {/* Extra model info for Q */}
-      {session.model && session.platform === 'qchat' && (
-        <Box marginLeft={isSelected ? 0 : 2}>
+        ) : session.model && session.platform === 'qchat' ? (
           <Text color="blue">
             🤖 {session.model.replace('CLAUDE_SONNET_4_20250514_V1_0', 'Claude Sonnet 4')}
           </Text>
-        </Box>
-      )}
-      
-      {/* Spacing */}
-      {!isSelected && <Text> </Text>}
+        ) : (
+          <Text color="dim">💭 No preview available</Text>
+        )}
+      </Box>
     </Box>
   );
 };
