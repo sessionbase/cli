@@ -32,7 +32,21 @@ program.addCommand(uploadCommand);
 program.addCommand(whoamiCommand);
 program.addCommand(logoutCommand);
 
-program.parseAsync(process.argv).catch((error) => {
-  console.error('Error:', error.message);
-  process.exit(1);
-});
+// Check if no subcommands provided - launch TUI
+if (process.argv.length === 2) {
+  (async () => {
+    try {
+      const { launchTUI } = await import('./tui/index.js');
+      await launchTUI();
+    } catch (error) {
+      console.error('Error launching TUI:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  })();
+} else {
+  // Otherwise process CLI commands normally
+  program.parseAsync(process.argv).catch((error) => {
+    console.error('Error:', error.message);
+    process.exit(1);
+  });
+}

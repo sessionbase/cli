@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts --format esm --dts",
+    "build": "tsup",
     "test": "vitest"
   },
   "dependencies": {
@@ -21,11 +21,13 @@
     "oh-my-logo": "^0.1.0",
     "open": "^9",
     "ora": "^8",
+    "react": "^18.3.1",
     "sqlite3": "^5.1.7",
     "zod": "^3"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",
+    "@types/react": "^19.1.8",
     "tsup": "^8",
     "tsx": "^4.20.3",
     "typescript": "^5",
