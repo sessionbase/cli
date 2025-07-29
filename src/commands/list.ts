@@ -13,24 +13,85 @@ const Q_DATABASE_PATH = join(homedir(), 'Library/Application Support/amazon-q/da
 
 export const listCommand = new Command('list')
   .description('List local chat sessions')
-  .option('--claude', 'List Claude Code sessions')
-  .option('--gemini', 'List Gemini CLI sessions')
-  .option('--qchat', 'List Amazon Q Chat sessions')
+  .option('--claude', 'Filter for Claude Code sessions')
+  .option('--gemini', 'Filter for Gemini CLI sessions')
+  .option('--qchat', 'Filter for Amazon Q Chat sessions')
   .option('--path <path>', 'Filter sessions by specific directory path')
-  .option('--all', 'List sessions from all projects')
+  .option('--global', 'Include sessions from all projects')
   .action(async (options) => {
-    if (options.claude) {
-      await listClaudeSessions(options.path, options.all);
-    } else if (options.gemini) {
-      await listGeminiSessions(options.path, options.all);
-    } else if (options.qchat) {
-      await listQChatSessions(options.path, options.all);
+    // Validate mutually exclusive options
+    if (options.path && options.global) {
+      console.error(chalk.red('Error: Cannot specify both --path and --global options'));
+      process.exit(1);
+    }
+    
+    const platformsRequested = [options.claude, options.gemini, options.qchat].filter(Boolean);
+    
+    if (platformsRequested.length === 0) {
+      // Show all platforms by default
+      await listAllPlatforms(options.path, options.global);
     } else {
-      console.log('Please specify a tool: --claude, --gemini, or --qchat');
+      // Show specific platforms
+      if (options.claude) {
+        await listClaudeSessions(options.path, options.global);
+      }
+      if (options.gemini) {
+        await listGeminiSessions(options.path, options.global);
+      }
+      if (options.qchat) {
+        await listQChatSessions(options.path, options.global);
+      }
     }
   });
 
-async function listClaudeSessions(filterPath?: string, showAll?: boolean) {
+async function listAllPlatforms(filterPath?: string, showGlobal?: boolean) {
+  const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
+  console.log(chalk.bold.blue(`\n📋 Sessions for ${scope}:\n`));
+  
+  let foundAny = false;
+  
+  // Try Claude sessions
+  if (existsSync(CLAUDE_CODE_PATH)) {
+    try {
+      console.log(chalk.bold.cyan('Claude Code:'));
+      await listClaudeSessions(filterPath, showGlobal, false);
+      foundAny = true;
+    } catch (error) {
+      // Silent fail for individual platforms
+    }
+  }
+  
+  // Try Gemini sessions
+  if (existsSync(GEMINI_CLI_PATH)) {
+    try {
+      if (foundAny) console.log(''); // Add spacing between platforms
+      console.log(chalk.bold.cyan('Gemini CLI:'));
+      await listGeminiSessions(filterPath, showGlobal, false);
+      foundAny = true;
+    } catch (error) {
+      // Silent fail for individual platforms
+    }
+  }
+  
+  // Try Q Chat sessions
+  if (existsSync(Q_DATABASE_PATH)) {
+    try {
+      if (foundAny) console.log(''); // Add spacing between platforms
+      console.log(chalk.bold.cyan('Amazon Q Chat:'));
+      await listQChatSessions(filterPath, showGlobal, false);
+      foundAny = true;
+    } catch (error) {
+      // Silent fail for individual platforms
+    }
+  }
+  
+  if (!foundAny) {
+    console.log(chalk.yellow('No chat sessions found on any platform.'));
+    console.log(chalk.gray('Supported platforms: Claude Code, Gemini CLI, Amazon Q Chat'));
+  }
+}
+
+async function listClaudeSessions(filterPath?: string, showGlobal?: boolean, showHeader: boolean = true) {
   try {
     if (!existsSync(CLAUDE_CODE_PATH)) {
       console.log(chalk.yellow('No Claude Code sessions found (directory does not exist)'));
@@ -39,7 +100,7 @@ async function listClaudeSessions(filterPath?: string, showAll?: boolean) {
 
     let allSessions = [];
 
-    if (showAll) {
+    if (showGlobal) {
       // List all projects
       const projectDirs = await readdir(CLAUDE_CODE_PATH);
       
@@ -125,7 +186,7 @@ async function listClaudeSessions(filterPath?: string, showAll?: boolean) {
     }
 
     if (allSessions.length === 0) {
-      const scope = showAll ? 'all projects' : (filterPath || process.cwd());
+      const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
       console.log(chalk.yellow(`No valid Claude Code sessions found for ${scope}`));
       return;
     }
@@ -133,10 +194,12 @@ async function listClaudeSessions(filterPath?: string, showAll?: boolean) {
     // Sort by last modified (oldest first, newest at bottom)
     allSessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
 
-    const scope = showAll ? 'all projects' : (filterPath || process.cwd());
-    console.log(chalk.bold.blue(`\n📋 Found ${allSessions.length} Claude Code session${allSessions.length === 1 ? '' : 's'} for ${scope}:\n`));
+    const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
+    if (showHeader) {
+      console.log(chalk.bold.blue(`\n📋 Found ${allSessions.length} Claude Code session${allSessions.length === 1 ? '' : 's'} for ${scope}:\n`));
+    }
     
-    if (showAll) {
+    if (showGlobal) {
       // Group by project for better readability
       const sessionsByProject = allSessions.reduce((acc, session) => {
         if (!acc[session.projectPath]) {
@@ -257,7 +320,7 @@ async function parseClaudeSession(filePath: string) {
   };
 }
 
-async function listGeminiSessions(filterPath?: string, showAll?: boolean) {
+async function listGeminiSessions(filterPath?: string, showGlobal?: boolean, showHeader: boolean = true) {
   try {
     if (!existsSync(GEMINI_CLI_PATH)) {
       console.log(chalk.yellow('No Gemini CLI sessions found (directory does not exist)'));
@@ -266,7 +329,7 @@ async function listGeminiSessions(filterPath?: string, showAll?: boolean) {
 
     let allSessions = [];
 
-    if (showAll) {
+    if (showGlobal) {
       // Scan all hash directories and parse context messages to extract project paths
       const hashDirs = await readdir(GEMINI_CLI_PATH);
       
@@ -361,7 +424,7 @@ async function listGeminiSessions(filterPath?: string, showAll?: boolean) {
     }
 
     if (allSessions.length === 0) {
-      const scope = showAll ? 'all projects' : (filterPath || process.cwd());
+      const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
       console.log(chalk.yellow(`No valid Gemini CLI sessions found for ${scope}`));
       return;
     }
@@ -369,10 +432,12 @@ async function listGeminiSessions(filterPath?: string, showAll?: boolean) {
     // Sort by last modified (oldest first, newest at bottom)
     allSessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
 
-    const scope = showAll ? 'all projects' : (filterPath || process.cwd());
-    console.log(chalk.bold.blue(`\n🔷 Found ${allSessions.length} Gemini CLI session${allSessions.length === 1 ? '' : 's'} for ${scope}:\n`));
+    const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
+    if (showHeader) {
+      console.log(chalk.bold.blue(`\n🔷 Found ${allSessions.length} Gemini CLI session${allSessions.length === 1 ? '' : 's'} for ${scope}:\n`));
+    }
     
-    if (showAll) {
+    if (showGlobal) {
       // Group by project for better readability
       const sessionsByProject = allSessions.reduce((acc, session) => {
         if (!acc[session.projectPath]) {
@@ -540,7 +605,7 @@ async function parseGeminiSessionWithContext(filePath: string) {
   };
 }
 
-async function listQChatSessions(filterPath?: string, showAll?: boolean) {
+async function listQChatSessions(filterPath?: string, showGlobal?: boolean, showHeader: boolean = true) {
   try {
     if (!existsSync(Q_DATABASE_PATH)) {
       console.log(chalk.yellow('No Amazon Q Chat sessions found (Q CLI not installed or no conversations yet)'));
@@ -549,7 +614,7 @@ async function listQChatSessions(filterPath?: string, showAll?: boolean) {
 
     let allSessions = [];
 
-    if (showAll) {
+    if (showGlobal) {
       // List all conversations from the database
       const conversations = await readQDatabase();
       
@@ -604,7 +669,7 @@ async function listQChatSessions(filterPath?: string, showAll?: boolean) {
     }
 
     if (allSessions.length === 0) {
-      const scope = showAll ? 'all projects' : (filterPath || process.cwd());
+      const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
       console.log(chalk.yellow(`No valid Amazon Q Chat sessions found for ${scope}`));
       return;
     }
@@ -612,10 +677,12 @@ async function listQChatSessions(filterPath?: string, showAll?: boolean) {
     // Sort by last modified (oldest first, newest at bottom)
     allSessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
 
-    const scope = showAll ? 'all projects' : (filterPath || process.cwd());
-    console.log(chalk.bold.blue(`\n🤖 Found ${allSessions.length} Amazon Q Chat session${allSessions.length === 1 ? '' : 's'} for ${scope}:\n`));
+    const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
+    if (showHeader) {
+      console.log(chalk.bold.blue(`\n🤖 Found ${allSessions.length} Amazon Q Chat session${allSessions.length === 1 ? '' : 's'} for ${scope}:\n`));
+    }
     
-    if (showAll) {
+    if (showGlobal) {
       // Group by project for better readability
       const sessionsByProject = allSessions.reduce((acc, session) => {
         if (!acc[session.projectPath]) {
@@ -633,6 +700,7 @@ async function listQChatSessions(filterPath?: string, showAll?: boolean) {
           const date = session.lastModified.toLocaleDateString();
           const time = session.lastModified.toLocaleTimeString();
           
+          console.log(chalk.bold.white(`${allSessions.length - totalIndex + 1}. Q Chat Session`));
           console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
           
           if (session.firstMessagePreview) {
@@ -657,6 +725,7 @@ async function listQChatSessions(filterPath?: string, showAll?: boolean) {
         const date = session.lastModified.toLocaleDateString();
         const time = session.lastModified.toLocaleTimeString();
         
+        console.log(chalk.bold.white(`${allSessions.length - index}. Q Chat Session`));
         console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
         
         if (session.firstMessagePreview) {
