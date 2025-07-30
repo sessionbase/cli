@@ -1,19 +1,45 @@
 import { Command } from 'commander';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { createHash } from 'node:crypto';
+import sqlite3 from 'sqlite3';
 import { getToken } from '../auth.js';
 import { BASE_URL } from '../config.js';
 import chalk from 'chalk';
 import ora from 'ora';
 
 export const uploadCommand = new Command('upload')
-  .description('Upload a chat session file')
-  .argument('<file>', 'Path to the session file (.json or .jsonl)')
+  .description('Upload a chat session file or auto-detect most recent session')
+  .argument('[file]', 'Path to the session file (.json or .jsonl) - optional if using platform flags')
+  .option('--claude', 'Upload most recent Claude Code session from current directory')
+  .option('--gemini', 'Upload most recent Gemini CLI session from current directory')
+  .option('--qchat', 'Upload most recent Amazon Q Chat session from current directory')
   .option('--private', 'Make the session private')
   .option('--title <title>', 'Session title')
   .option('--tags <tags>', 'Comma-separated tags')
   .option('--summary <summary>', 'Session summary')
   .action(async (filePath, options) => {
-    const spinner = ora('Uploading session...').start();
+    // Validate mutually exclusive options
+    const platformFlags = [options.claude, options.gemini, options.qchat].filter(Boolean).length;
+    
+    if (filePath && platformFlags > 0) {
+      console.error(chalk.red('Error: Cannot specify both a file path and platform flags (--claude, --gemini, --qchat)'));
+      process.exit(1);
+    }
+    
+    if (!filePath && platformFlags === 0) {
+      console.error(chalk.red('Error: Must specify either a file path or a platform flag (--claude, --gemini, --qchat)'));
+      process.exit(1);
+    }
+    
+    if (platformFlags > 1) {
+      console.error(chalk.red('Error: Can only specify one platform flag at a time'));
+      process.exit(1);
+    }
+    
+    const spinner = ora('Finding session...').start();
     
     try {
       // Get auth token
@@ -22,6 +48,17 @@ export const uploadCommand = new Command('upload')
         spinner.fail('Not authenticated. Please run `sessionbase login` first.');
         process.exit(1);
       }
+      
+      // Auto-detect session file if using platform flags
+      if (platformFlags > 0) {
+        const detectedFile = await detectMostRecentSession(options, spinner);
+        if (!detectedFile) {
+          process.exit(1);
+        }
+        filePath = detectedFile;
+      }
+      
+      spinner.text = 'Uploading session...';
 
       // Read and parse the file
       const content = readFileSync(filePath, 'utf-8');
@@ -65,6 +102,14 @@ export const uploadCommand = new Command('upload')
               messages: parsed,
               title: `Gemini CLI Session ${new Date().toISOString().split('T')[0]}`,
               platform: 'gemini-cli'
+            };
+          } else if (parsed.conversation_id && parsed.history && Array.isArray(parsed.history)) {
+            // Q Chat format detection and conversion
+            sessionData = {
+              messages: convertQChatToMessages(parsed),
+              title: `Q Chat Session ${new Date().toISOString().split('T')[0]}`,
+              platform: 'q-chat',
+              conversationId: parsed.conversation_id
             };
           } else {
             sessionData = parsed;
@@ -125,3 +170,311 @@ export const uploadCommand = new Command('upload')
       process.exit(1);
     }
   });
+
+const CLAUDE_CODE_PATH = join(homedir(), '.claude', 'projects');
+const GEMINI_CLI_PATH = join(homedir(), '.gemini', 'tmp');
+const Q_DATABASE_PATH = join(homedir(), 'Library/Application Support/amazon-q/data.sqlite3');
+
+async function detectMostRecentSession(options: any, spinner: any): Promise<string | null> {
+  const currentDir = process.cwd();
+  
+  if (options.claude) {
+    return await findMostRecentClaudeSession(currentDir, spinner);
+  } else if (options.gemini) {
+    return await findMostRecentGeminiSession(currentDir, spinner);
+  } else if (options.qchat) {
+    return await findMostRecentQChatSession(currentDir, spinner);
+  }
+  
+  return null;
+}
+
+async function findMostRecentClaudeSession(targetPath: string, spinner: any): Promise<string | null> {
+  try {
+    if (!existsSync(CLAUDE_CODE_PATH)) {
+      spinner.fail('No Claude Code sessions found (directory does not exist)');
+      return null;
+    }
+
+    const encodedPath = targetPath.replace(/\//g, '-');
+    const projectDir = join(CLAUDE_CODE_PATH, encodedPath);
+
+    if (!existsSync(projectDir)) {
+      spinner.fail(`No Claude Code sessions found for project: ${targetPath}`);
+      return null;
+    }
+
+    const files = await readdir(projectDir);
+    const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
+
+    if (jsonlFiles.length === 0) {
+      spinner.fail(`No Claude Code sessions found for project: ${targetPath}`);
+      return null;
+    }
+    
+    // Find most recent file
+    let mostRecentFile = null;
+    let mostRecentTime = 0;
+    
+    for (const jsonlFile of jsonlFiles) {
+      const sessionFile = join(projectDir, jsonlFile);
+      
+      try {
+        const stats = await stat(sessionFile);
+        if (stats.mtime.getTime() > mostRecentTime) {
+          mostRecentTime = stats.mtime.getTime();
+          mostRecentFile = sessionFile;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+
+    if (!mostRecentFile) {
+      spinner.fail(`No valid Claude Code sessions found for project: ${targetPath}`);
+      return null;
+    }
+    
+    spinner.succeed(`Found most recent Claude Code session: ${mostRecentFile}`);
+    return mostRecentFile;
+    
+  } catch (error) {
+    spinner.fail(`Error finding Claude Code session: ${error.message}`);
+    return null;
+  }
+}
+
+async function findMostRecentGeminiSession(targetPath: string, spinner: any): Promise<string | null> {
+  try {
+    if (!existsSync(GEMINI_CLI_PATH)) {
+      spinner.fail('No Gemini CLI sessions found (directory does not exist)');
+      return null;
+    }
+
+    const hash = createHash('sha256').update(targetPath).digest('hex');
+    const geminiDir = join(GEMINI_CLI_PATH, hash);
+
+    if (!existsSync(geminiDir)) {
+      spinner.fail(`No Gemini CLI sessions found for project: ${targetPath}`);
+      return null;
+    }
+
+    const files = await readdir(geminiDir);
+    const checkpoints = files.filter(f => 
+      (f.startsWith('checkpoint-') && f.endsWith('.json')) || 
+      f === 'checkpoint.json'
+    );
+
+    if (checkpoints.length === 0) {
+      spinner.fail(`No Gemini CLI checkpoints found for project: ${targetPath}`);
+      return null;
+    }
+    
+    // Find most recent file
+    let mostRecentFile = null;
+    let mostRecentTime = 0;
+    
+    for (const checkpoint of checkpoints) {
+      const filePath = join(geminiDir, checkpoint);
+      
+      try {
+        const stats = await stat(filePath);
+        if (stats.mtime.getTime() > mostRecentTime) {
+          mostRecentTime = stats.mtime.getTime();
+          mostRecentFile = filePath;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+
+    if (!mostRecentFile) {
+      spinner.fail(`No valid Gemini CLI sessions found for project: ${targetPath}`);
+      return null;
+    }
+    
+    spinner.succeed(`Found most recent Gemini CLI session: ${mostRecentFile}`);
+    return mostRecentFile;
+    
+  } catch (error) {
+    spinner.fail(`Error finding Gemini CLI session: ${error.message}`);
+    return null;
+  }
+}
+
+async function findMostRecentQChatSession(targetPath: string, spinner: any): Promise<string | null> {
+  try {
+    if (!existsSync(Q_DATABASE_PATH)) {
+      spinner.fail('No Amazon Q Chat sessions found (Q CLI not installed or no conversations yet)');
+      return null;
+    }
+
+    const conversation = await readQDatabase(targetPath);
+    
+    if (!conversation) {
+      spinner.fail(`No Amazon Q Chat session found for project: ${targetPath}`);
+      return null;
+    }
+    
+    try {
+      const sessionData = parseQConversation(conversation.conversationData);
+      
+      // Create a temporary JSON file with the raw Q Chat data (same as direct file upload)
+      const tempFileName = `/tmp/qchat-session-${Date.now()}.json`;
+      
+      await require('fs').promises.writeFile(tempFileName, JSON.stringify(conversation.conversationData, null, 2));
+      
+      spinner.succeed(`Found Amazon Q Chat session: ${conversation.directoryPath}`);
+      return tempFileName;
+      
+    } catch (error) {
+      spinner.fail(`Error parsing Q Chat session: ${error.message}`);
+      return null;
+    }
+    
+  } catch (error) {
+    spinner.fail(`Error finding Q Chat session: ${error.message}`);
+    return null;
+  }
+}
+
+function readQDatabase(filterPath?: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(Q_DATABASE_PATH, sqlite3.OPEN_READONLY);
+    
+    // Query for specific path
+    db.get('SELECT key, value FROM conversations WHERE key = ?', [filterPath], (err, row) => {
+      if (err) {
+        db.close();
+        reject(err);
+        return;
+      }
+      
+      if (!row) {
+        db.close();
+        resolve(null);
+        return;
+      }
+      
+      try {
+        const conversationData = JSON.parse(row.value);
+        db.close();
+        resolve({
+          directoryPath: row.key,
+          conversationId: conversationData.conversation_id,
+          conversationData
+        });
+      } catch (error) {
+        db.close();
+        reject(new Error(`Failed to parse conversation data: ${error.message}`));
+      }
+    });
+  });
+}
+
+function parseQConversation(conversationData: any) {
+  const history = conversationData.history || [];
+  let messageCount = 0;
+  let toolCalls = 0;
+  let firstMessagePreview = '';
+  let lastActivity = Date.now();
+
+  // Parse the conversation history
+  for (const turn of history) {
+    if (Array.isArray(turn) && turn.length >= 2) {
+      const [userMessage, assistantMessage] = turn;
+      
+      messageCount += 2; // User + Assistant
+      
+      // Extract first user message preview
+      if (!firstMessagePreview && userMessage?.content?.Prompt?.prompt) {
+        const text = userMessage.content.Prompt.prompt;
+        firstMessagePreview = text
+          .replace(/\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .substring(0, 100);
+        
+        if (text.length > 100) {
+          firstMessagePreview += '...';
+        }
+      }
+      
+      // Count tool calls (check for Response with message_id, indicates tool usage)
+      if (assistantMessage?.Response?.message_id) {
+        // This is a rough heuristic - could be improved by checking the actual content
+        const content = assistantMessage.Response.content || '';
+        if (content.includes('🛠️') || content.includes('tool')) {
+          toolCalls++;
+        }
+      }
+    }
+  }
+
+  // Extract model information
+  const model = conversationData.model || 'Unknown Model';
+
+  return {
+    messageCount,
+    toolCalls,
+    firstMessagePreview,
+    lastActivity,
+    model
+  };
+}
+
+function convertQChatToMessages(conversationData: any): any[] {
+  const messages = [];
+  const history = conversationData.history || [];
+  const sessionId = conversationData.conversation_id || `qchat-${Date.now()}`;
+  
+  for (let i = 0; i < history.length; i++) {
+    const turn = history[i];
+    
+    if (Array.isArray(turn) && turn.length >= 2) {
+      const [userMessage, assistantMessage] = turn;
+      
+      // Add user message in Q Chat format
+      if (userMessage?.content?.Prompt?.prompt) {
+        messages.push({
+          parentUuid: null,
+          isSidechain: false,
+          userType: "external",
+          cwd: process.cwd(),
+          sessionId: sessionId,
+          version: "1.0.60", // Q CLI version - could be dynamic
+          gitBranch: "",
+          type: "user",
+          message: {
+            role: "user",
+            content: userMessage.content.Prompt.prompt
+          },
+          uuid: `user-${sessionId}-${i}`,
+          timestamp: userMessage.timestamp || Date.now()
+        });
+      }
+      
+      // Add assistant message in Q Chat format
+      if (assistantMessage?.Response?.content) {
+        messages.push({
+          parentUuid: null,
+          isSidechain: false,
+          userType: "external",
+          cwd: process.cwd(),
+          sessionId: sessionId,
+          version: "1.0.60",
+          gitBranch: "",
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: assistantMessage.Response.content
+          },
+          uuid: `assistant-${sessionId}-${i}`,
+          timestamp: assistantMessage.timestamp || Date.now()
+        });
+      }
+    }
+  }
+  
+  return messages;
+}
