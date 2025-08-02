@@ -381,32 +381,43 @@ function parseQConversation(conversationData: any) {
 
   // Parse the conversation history
   for (const turn of history) {
+    let userMessage, assistantMessage;
+    
+    // Handle both old array format and new object format
     if (Array.isArray(turn) && turn.length >= 2) {
-      const [userMessage, assistantMessage] = turn;
+      // Old format: [userMessage, assistantMessage]
+      [userMessage, assistantMessage] = turn;
+    } else if (turn && typeof turn === 'object' && turn.user && turn.assistant) {
+      // New format: {user: userMessage, assistant: assistantMessage}
+      userMessage = turn.user;
+      assistantMessage = turn.assistant;
+    } else {
+      // Skip invalid entries
+      continue;
+    }
+    
+    messageCount += 2; // User + Assistant
+    
+    // Extract first user message preview
+    if (!firstMessagePreview && userMessage?.content?.Prompt?.prompt) {
+      const text = userMessage.content.Prompt.prompt;
+      firstMessagePreview = text
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 100);
       
-      messageCount += 2; // User + Assistant
-      
-      // Extract first user message preview
-      if (!firstMessagePreview && userMessage?.content?.Prompt?.prompt) {
-        const text = userMessage.content.Prompt.prompt;
-        firstMessagePreview = text
-          .replace(/\n/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 100);
-        
-        if (text.length > 100) {
-          firstMessagePreview += '...';
-        }
+      if (text.length > 100) {
+        firstMessagePreview += '...';
       }
-      
-      // Count tool calls (check for Response or ToolUse with message_id, indicates tool usage)
-      if (assistantMessage?.Response?.message_id || assistantMessage?.ToolUse?.message_id) {
-        // This is a rough heuristic - could be improved by checking the actual content
-        const content = assistantMessage?.Response?.content || assistantMessage?.ToolUse?.content || '';
-        if (content.includes('🛠️') || content.includes('tool')) {
-          toolCalls++;
-        }
+    }
+    
+    // Count tool calls (check for Response or ToolUse with message_id, indicates tool usage)
+    if (assistantMessage?.Response?.message_id || assistantMessage?.ToolUse?.message_id) {
+      // This is a rough heuristic - could be improved by checking the actual content
+      const content = assistantMessage?.Response?.content || assistantMessage?.ToolUse?.content || '';
+      if (content.includes('🛠️') || content.includes('tool')) {
+        toolCalls++;
       }
     }
   }
@@ -430,57 +441,116 @@ function convertQChatToMessages(conversationData: any): any[] {
   
   for (let i = 0; i < history.length; i++) {
     const turn = history[i];
+    let userMessage, assistantMessage;
     
+    // Handle both old array format and new object format
     if (Array.isArray(turn) && turn.length >= 2) {
-      const [userMessage, assistantMessage] = turn;
+      // Old format: [userMessage, assistantMessage]
+      [userMessage, assistantMessage] = turn;
+    } else if (turn && typeof turn === 'object' && turn.user && turn.assistant) {
+      // New format: {user: userMessage, assistant: assistantMessage}
+      userMessage = turn.user;
+      assistantMessage = turn.assistant;
+    } else {
+      // Skip invalid entries
+      continue;
+    }
+    
+    // Add user message for prompts
+    if (userMessage?.content?.Prompt?.prompt) {
+      messages.push({
+        parentUuid: null,
+        isSidechain: false,
+        userType: "external",
+        cwd: userMessage.env_context?.env_state?.current_working_directory || process.cwd(),
+        sessionId: sessionId,
+        version: "1.0.60",
+        gitBranch: "",
+        type: "user",
+        message: {
+          role: "user",
+          content: userMessage.content.Prompt.prompt
+        },
+        uuid: `user-${sessionId}-${i}`,
+        timestamp: userMessage.timestamp || Date.now()
+      });
+    }
+    
+    // Add tool results as separate tool messages
+    if (userMessage?.content?.ToolUseResults?.tool_use_results) {
+      const toolResults = userMessage.content.ToolUseResults.tool_use_results;
       
-      // Add user message in Q Chat format
-      if (userMessage?.content?.Prompt?.prompt) {
-        messages.push({
-          parentUuid: null,
-          isSidechain: false,
-          userType: "external",
-          cwd: process.cwd(),
-          sessionId: sessionId,
-          version: "1.0.60", // Q CLI version - could be dynamic
-          gitBranch: "",
-          type: "user",
-          message: {
-            role: "user",
-            content: userMessage.content.Prompt.prompt
-          },
-          uuid: `user-${sessionId}-${i}`,
-          timestamp: userMessage.timestamp || Date.now()
-        });
+      messages.push({
+        parentUuid: null,
+        isSidechain: false,
+        userType: "external",
+        cwd: userMessage.env_context?.env_state?.current_working_directory || process.cwd(),
+        sessionId: sessionId,
+        version: "1.0.60",
+        gitBranch: "",
+        type: "tool",
+        message: {
+          role: "tool",
+          content: "Tool execution results",
+          toolResults: toolResults.map(result => ({
+            tool_use_id: result.tool_use_id,
+            content: result.content,
+            status: result.status
+          }))
+        },
+        uuid: `tool-${sessionId}-${i}`,
+        timestamp: userMessage.timestamp || Date.now()
+      });
+    }
+    
+    // Add assistant messages
+    let assistantContent = null;
+    let toolCalls = null;
+    
+    if (assistantMessage?.Response?.content) {
+      assistantContent = assistantMessage.Response.content;
+    } else if (assistantMessage?.ToolUse?.content) {
+      assistantContent = assistantMessage.ToolUse.content;
+      
+      // Add tool calls if they exist
+      if (assistantMessage.ToolUse.tool_uses && assistantMessage.ToolUse.tool_uses.length > 0) {
+        toolCalls = assistantMessage.ToolUse.tool_uses.map(tool => ({
+          id: tool.id,
+          name: tool.name,
+          input: tool.args,
+          timestamp: tool.timestamp || Date.now(),
+          metadata: {
+            orig_name: tool.orig_name || tool.name,
+            orig_args: tool.orig_args || tool.args
+          }
+        }));
+      }
+    }
+    
+    if (assistantContent) {
+      const assistantMsg = {
+        parentUuid: null,
+        isSidechain: false,
+        userType: "external",
+        cwd: userMessage?.env_context?.env_state?.current_working_directory || process.cwd(),
+        sessionId: sessionId,
+        version: "1.0.60",
+        gitBranch: "",
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: assistantContent
+        },
+        uuid: `assistant-${sessionId}-${i}`,
+        timestamp: assistantMessage.timestamp || Date.now()
+      };
+      
+      // Add toolCalls if they exist
+      if (toolCalls) {
+        assistantMsg.message.toolCalls = toolCalls;
       }
       
-      // Add assistant message in Q Chat format
-      // Handle both Response and ToolUse message types
-      let assistantContent = null;
-      if (assistantMessage?.Response?.content) {
-        assistantContent = assistantMessage.Response.content;
-      } else if (assistantMessage?.ToolUse?.content) {
-        assistantContent = assistantMessage.ToolUse.content;
-      }
-      
-      if (assistantContent) {
-        messages.push({
-          parentUuid: null,
-          isSidechain: false,
-          userType: "external",
-          cwd: process.cwd(),
-          sessionId: sessionId,
-          version: "1.0.60",
-          gitBranch: "",
-          type: "assistant",
-          message: {
-            role: "assistant",
-            content: assistantContent
-          },
-          uuid: `assistant-${sessionId}-${i}`,
-          timestamp: assistantMessage.timestamp || Date.now()
-        });
-      }
+      messages.push(assistantMsg);
     }
   }
   
