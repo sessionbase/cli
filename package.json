@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "sessionbase": "./dist/index.js"
+    "sessionbase": "./dist/index.js",
+    "sessionbase-mcp": "./dist/mcp.js"
   },
   "engines": {
     "node": ">=18"
@@ -15,8 +16,10 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.1",
     "chalk": "^5.4.1",
     "commander": "^11",
+    "execa": "^9.6.0",
     "keytar": "^7",
     "oh-my-logo": "^0.1.0",
     "open": "^9",
