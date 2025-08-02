@@ -400,10 +400,10 @@ function parseQConversation(conversationData: any) {
         }
       }
       
-      // Count tool calls (check for Response with message_id, indicates tool usage)
-      if (assistantMessage?.Response?.message_id) {
+      // Count tool calls (check for Response or ToolUse with message_id, indicates tool usage)
+      if (assistantMessage?.Response?.message_id || assistantMessage?.ToolUse?.message_id) {
         // This is a rough heuristic - could be improved by checking the actual content
-        const content = assistantMessage.Response.content || '';
+        const content = assistantMessage?.Response?.content || assistantMessage?.ToolUse?.content || '';
         if (content.includes('🛠️') || content.includes('tool')) {
           toolCalls++;
         }
@@ -455,7 +455,15 @@ function convertQChatToMessages(conversationData: any): any[] {
       }
       
       // Add assistant message in Q Chat format
+      // Handle both Response and ToolUse message types
+      let assistantContent = null;
       if (assistantMessage?.Response?.content) {
+        assistantContent = assistantMessage.Response.content;
+      } else if (assistantMessage?.ToolUse?.content) {
+        assistantContent = assistantMessage.ToolUse.content;
+      }
+      
+      if (assistantContent) {
         messages.push({
           parentUuid: null,
           isSidechain: false,
@@ -467,7 +475,7 @@ function convertQChatToMessages(conversationData: any): any[] {
           type: "assistant",
           message: {
             role: "assistant",
-            content: assistantMessage.Response.content
+            content: assistantContent
           },
           uuid: `assistant-${sessionId}-${i}`,
           timestamp: assistantMessage.timestamp || Date.now()
