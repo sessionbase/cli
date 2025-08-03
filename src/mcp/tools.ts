@@ -40,14 +40,14 @@ export const listSessionsTool = {
   }
 };
 
-export const uploadSessionTool = {
-  name: 'upload_session',
-  description: 'Upload a chat session to SessionBase. IMPORTANT: Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful.',
+export const pushSessionTool = {
+  name: 'push_session',
+  description: 'Push a chat session to SessionBase. IMPORTANT: Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful.',
   inputSchema: z.object({
     filePath: z.string().optional().describe('Path to the session file (.json or .jsonl)'),
-    claude: z.boolean().optional().describe('Upload most recent Claude Code session from current directory'),
-    gemini: z.boolean().optional().describe('Upload most recent Gemini CLI session from current directory'),
-    qchat: z.boolean().optional().describe('Upload most recent Amazon Q Chat session from current directory'),
+    claude: z.boolean().optional().describe('Push most recent Claude Code session from current directory'),
+    gemini: z.boolean().optional().describe('Push most recent Gemini CLI session from current directory'),
+    qchat: z.boolean().optional().describe('Push most recent Amazon Q Chat session from current directory'),
     private: z.boolean().optional().describe('Make the session private'),
     title: z.string().optional().describe('RECOMMENDED: Generate a clear, descriptive title that summarizes what was accomplished or discussed in this session (e.g., "Built SessionBase MCP Server", "Debugged React Authentication Issues")'),
     tags: z.string().optional().describe('RECOMMENDED: Generate relevant comma-separated tags based on technologies, topics, or tasks discussed (e.g., "typescript,mcp,sessionbase,api" or "react,debugging,authentication,frontend")'),
@@ -64,7 +64,7 @@ export const uploadSessionTool = {
     summary?: string;
   }) => {
     try {
-      const result = await cli.uploadSession(params.filePath, {
+      const result = await cli.pushSession(params.filePath, {
         claude: params.claude,
         gemini: params.gemini,
         qchat: params.qchat,
@@ -87,7 +87,7 @@ export const uploadSessionTool = {
         return {
           content: [{
             type: 'text' as const,
-            text: `No Gemini CLI checkpoints found for this project. To create a session that can be uploaded, run \`/chat save\` in your Gemini CLI session first, then try uploading again.`
+            text: `No Gemini CLI checkpoints found for this project. To create a session that can be pushed, run \`/chat save\` in your Gemini CLI session first, then try pushing again.`
           }],
           isError: true
         };
@@ -96,7 +96,7 @@ export const uploadSessionTool = {
       return {
         content: [{
           type: 'text' as const,
-          text: `Error uploading session: ${error}`
+          text: `Error pushing session: ${error}`
         }],
         isError: true
       };

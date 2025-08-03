@@ -41,7 +41,7 @@ export class SessionbaseCLI {
     return result.stdout;
   }
 
-  async uploadSession(filePath?: string, options: {
+  async pushSession(filePath?: string, options: {
     claude?: boolean;
     gemini?: boolean;
     qchat?: boolean;
@@ -50,7 +50,7 @@ export class SessionbaseCLI {
     tags?: string;
     summary?: string;
   } = {}): Promise<string> {
-    const args = ['upload'];
+    const args = ['push'];
     if (filePath) args.push(filePath);
     if (options.claude) args.push('--claude');
     if (options.gemini) args.push('--gemini');

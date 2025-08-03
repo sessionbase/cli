@@ -10,12 +10,12 @@ import { BASE_URL } from '../config.js';
 import chalk from 'chalk';
 import ora from 'ora';
 
-export const uploadCommand = new Command('upload')
-  .description('Upload a chat session file or auto-detect most recent session')
+export const pushCommand = new Command('push')
+  .description('Push a chat session file or auto-detect most recent session')
   .argument('[file]', 'Path to the session file (.json or .jsonl) - optional if using platform flags')
-  .option('--claude', 'Upload most recent Claude Code session from current directory')
-  .option('--gemini', 'Upload most recent Gemini CLI session from current directory')
-  .option('--qchat', 'Upload most recent Amazon Q Chat session from current directory')
+  .option('--claude', 'Push most recent Claude Code session from current directory')
+  .option('--gemini', 'Push most recent Gemini CLI session from current directory')
+  .option('--qchat', 'Push most recent Amazon Q Chat session from current directory')
   .option('--private', 'Make the session private')
   .option('--title <title>', 'Session title')
   .option('--tags <tags>', 'Comma-separated tags')
@@ -58,7 +58,7 @@ export const uploadCommand = new Command('upload')
         filePath = detectedFile;
       }
       
-      spinner.text = 'Uploading session...';
+      spinner.text = 'Pushing session...';
 
       // Read and parse the file
       const content = readFileSync(filePath, 'utf-8');
@@ -153,20 +153,20 @@ export const uploadCommand = new Command('upload')
 
       if (!response.ok) {
         const errorText = await response.text();
-        spinner.fail(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+        spinner.fail(`Push failed: ${response.status} ${response.statusText} - ${errorText}`);
         process.exit(1);
       }
 
       const result = await response.json();
       
-      spinner.succeed('Session uploaded successfully!');
+      spinner.succeed('Session pushed successfully!');
       console.log(chalk.green(`Session ID: ${result.id}`));
       if (result.url) {
         console.log(chalk.blue(`URL: ${result.url}`));
       }
 
     } catch (error) {
-      spinner.fail(`Upload failed: ${error.message}`);
+      spinner.fail(`Push failed: ${error.message}`);
       process.exit(1);
     }
   });

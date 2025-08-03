@@ -12,7 +12,7 @@ import {
 
 import {
   listSessionsTool,
-  uploadSessionTool,
+  pushSessionTool,
   whoamiTool,
 } from './tools.js';
 
@@ -55,15 +55,15 @@ class SessionBaseMCPServer {
             },
           },
           {
-            name: uploadSessionTool.name,
-            description: uploadSessionTool.description,
+            name: pushSessionTool.name,
+            description: pushSessionTool.description,
             inputSchema: {
               type: "object",
               properties: {
                 filePath: { type: "string", description: "Path to session file (.json or .jsonl)" },
-                claude: { type: "boolean", description: "Upload most recent Claude Code session" },
-                gemini: { type: "boolean", description: "Upload most recent Gemini CLI session" },
-                qchat: { type: "boolean", description: "Upload most recent Amazon Q Chat session" },
+                claude: { type: "boolean", description: "Push most recent Claude Code session" },
+                gemini: { type: "boolean", description: "Push most recent Gemini CLI session" },
+                qchat: { type: "boolean", description: "Push most recent Amazon Q Chat session" },
                 private: { type: "boolean", description: "Make the session private" },
                 title: { type: "string", description: "RECOMMENDED: Generate a clear, descriptive title that summarizes what was accomplished or discussed in this session (e.g., \"Built SessionBase MCP Server\", \"Debugged React Authentication Issues\")" },
                 tags: { type: "string", description: "RECOMMENDED: Generate relevant comma-separated tags based on technologies, topics, or tasks discussed (e.g., \"typescript,mcp,sessionbase,api\" or \"react,debugging,authentication,frontend\")" },
@@ -92,8 +92,8 @@ class SessionBaseMCPServer {
           case listSessionsTool.name:
             return await listSessionsTool.handler(args || {});
 
-          case uploadSessionTool.name:
-            return await uploadSessionTool.handler(args || {});
+          case pushSessionTool.name:
+            return await pushSessionTool.handler(args || {});
 
           case whoamiTool.name:
             return await whoamiTool.handler();
