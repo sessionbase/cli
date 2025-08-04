@@ -104,13 +104,13 @@ export const pushCommand = new Command('push')
               platform: 'gemini-cli'
             };
           } else if (parsed.conversation_id && parsed.history && Array.isArray(parsed.history)) {
-            // Q Chat format detection and conversion
-            sessionData = {
-              messages: convertQChatToMessages(parsed),
-              title: `Q Chat Session ${new Date().toISOString().split('T')[0]}`,
-              platform: 'q-chat',
-              conversationId: parsed.conversation_id
-            };
+            // Q Chat format - store raw data directly
+            sessionData = parsed;
+            sessionData.platform = 'q-chat';
+            // Set a default title if not present
+            if (!sessionData.title) {
+              sessionData.title = `Q Chat Session ${new Date().toISOString().split('T')[0]}`;
+            }
           } else {
             sessionData = parsed;
           }
@@ -120,26 +120,45 @@ export const pushCommand = new Command('push')
         process.exit(1);
       }
 
-      // Validate messages exist
-      if (!sessionData.messages || !Array.isArray(sessionData.messages)) {
-        spinner.fail('Session file must contain a "messages" array');
+      // Validate messages exist (different field names for different platforms)
+      const hasMessages = sessionData.messages && Array.isArray(sessionData.messages);
+      const hasHistory = sessionData.history && Array.isArray(sessionData.history); // Q Chat format
+      
+      if (!hasMessages && !hasHistory) {
+        spinner.fail('Session file must contain a "messages" array or "history" array');
         process.exit(1);
       }
 
-      // Build the payload (same for all formats)
-      const payload = {
-        messages: sessionData.messages,
-        isPrivate: options.private || false,
-        title: options.title || sessionData.title || 'Untitled Session',
-        summary: options.summary || sessionData.summary || '',
-        tags: options.tags ? options.tags.split(',').map(t => t.trim()) : (sessionData.tags || []),
-        tokenCount: sessionData.tokenCount || 0,
-        messageCount: sessionData.messages.length,
-        modelName: sessionData.modelName || 'unknown',
-        platform: sessionData.platform || 'qcli',
-        ...(sessionData.sessionId && { sessionId: sessionData.sessionId }),
-        ...(sessionData.cwd && { cwd: sessionData.cwd })
-      };
+      // Build the payload - for Q Chat, send the entire raw session data
+      let payload;
+      
+      if (sessionData.platform === 'q-chat') {
+        // For Q Chat, store the complete raw conversation data
+        payload = {
+          ...sessionData, // Include all raw Q Chat data
+          isPrivate: options.private || false,
+          title: options.title || sessionData.title || 'Untitled Session',
+          summary: options.summary || sessionData.summary || '',
+          tags: options.tags ? options.tags.split(',').map(t => t.trim()) : (sessionData.tags || []),
+          messageCount: sessionData.history ? sessionData.history.length : 0,
+          modelName: sessionData.model || 'unknown'
+        };
+      } else {
+        // For other platforms, use the existing messages-based format
+        payload = {
+          messages: sessionData.messages,
+          isPrivate: options.private || false,
+          title: options.title || sessionData.title || 'Untitled Session',
+          summary: options.summary || sessionData.summary || '',
+          tags: options.tags ? options.tags.split(',').map(t => t.trim()) : (sessionData.tags || []),
+          tokenCount: sessionData.tokenCount || 0,
+          messageCount: sessionData.messages.length,
+          modelName: sessionData.modelName || 'unknown',
+          platform: sessionData.platform || 'qcli',
+          ...(sessionData.sessionId && { sessionId: sessionData.sessionId }),
+          ...(sessionData.cwd && { cwd: sessionData.cwd })
+        };
+      }
 
       // Make the API call
       const response = await fetch(`${BASE_URL}/sessions`, {
