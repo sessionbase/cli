@@ -30,7 +30,7 @@ export class SessionbaseCLI {
     path?: string;
     global?: boolean;
   } = {}): Promise<string> {
-    const args = ['list'];
+    const args = ['ls'];
     if (options.claude) args.push('--claude');
     if (options.gemini) args.push('--gemini');
     if (options.qchat) args.push('--qchat');

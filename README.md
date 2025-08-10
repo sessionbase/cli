@@ -91,7 +91,7 @@ Add to `~/.aws/amazonq/mcp.json`:
 
 ```bash
 # List all sessions
-sessionbase list --global
+sessionbase ls --global
 
 # Push with metadata
 sessionbase push --claude --title "Debug Session" --tags "debugging,api" --private

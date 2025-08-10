@@ -11,7 +11,7 @@ const CLAUDE_CODE_PATH = join(homedir(), '.claude', 'projects');
 const GEMINI_CLI_PATH = join(homedir(), '.gemini', 'tmp');
 const Q_DATABASE_PATH = join(homedir(), 'Library/Application Support/amazon-q/data.sqlite3');
 
-export const listCommand = new Command('list')
+export const lsCommand = new Command('ls')
   .description('List local chat sessions')
   .option('--claude', 'Filter for Claude Code sessions')
   .option('--gemini', 'Filter for Gemini CLI sessions')

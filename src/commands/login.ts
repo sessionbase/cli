@@ -98,7 +98,7 @@ export function createLoginCommand(): Command {
         // Show help to get started
         console.log(chalk.bold('Get started:'));
         console.log(chalk.dim('  sessionbase --help      Show all commands'));
-        console.log(chalk.dim('  sessionbase list         List your sessions'));
+        console.log(chalk.dim('  sessionbase ls           List your sessions'));
         console.log(chalk.dim('  sessionbase push         Push a new session'));
         
       } catch (error) {
