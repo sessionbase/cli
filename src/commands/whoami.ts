@@ -1,31 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { isAuthenticated, getToken } from '../auth.js';
-
-/**
- * Decode JWT payload without verification (for display purposes only)
- */
-function decodeJWT(token: string): any | null {
-  try {
-    if (!token.includes('.')) return null;
-    
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    // Decode the payload (middle part)
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-    return payload;
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
- * Format timestamp for display
- */
-function formatTimestamp(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleString();
-}
+import { isAuthenticated } from '../auth.js';
+import { apiRequest, SessionBaseAPIError } from '../api/client.js';
 
 export const whoamiCommand = new Command('whoami');
 
@@ -35,51 +11,59 @@ whoamiCommand
     try {
       const authenticated = await isAuthenticated();
       
-      if (authenticated) {
-        const token = await getToken();
-        
-        console.log(chalk.green('✔ Authenticated'));
-        
-        // Try to decode JWT and show user info
-        if (token) {
-          const payload = decodeJWT(token);
-          if (payload) {
-            console.log();
-            console.log(chalk.bold('User Information:'));
-            
-            // Show common JWT fields if they exist
-            if (payload.sub) {
-              console.log(chalk.dim(`  User ID: ${payload.sub}`));
-            }
-            if (payload.email) {
-              console.log(chalk.dim(`  Email: ${payload.email}`));
-            }
-            if (payload.name || payload.username) {
-              console.log(chalk.dim(`  Name: ${payload.name || payload.username}`));
-            }
-            if (payload.userId) {
-              console.log(chalk.dim(`  User ID: ${payload.userId}`));
-            }
-            if (payload.provider) {
-              console.log(chalk.dim(`  Provider: ${payload.provider}`));
-            }
-            if (payload.iat) {
-              console.log(chalk.dim(`  Issued: ${formatTimestamp(payload.iat)}`));
-            }
-            
-            // Show any custom fields that might contain user info (excluding known fields)
-            const customFields = Object.keys(payload).filter(key => 
-              !['sub', 'email', 'name', 'username', 'exp', 'iat', 'iss', 'aud', 'nbf', 'jti', 'userId', 'provider', 'avatarUrl'].includes(key)
-            );
-            
-            if (customFields.length > 0) {
-              console.log(chalk.dim(`  Other: ${customFields.map(key => `${key}=${payload[key]}`).join(', ')}`));
-            }
-          }
-        }
-      } else {
+      if (!authenticated) {
         console.log(chalk.red('✗ Not authenticated'));
         console.log(chalk.dim('  Run: sessionbase login'));
+        return;
+      }
+
+      console.log(chalk.green('✔ Authenticated'));
+      
+      try {
+        // Fetch user data from the API
+        const response = await apiRequest('/auth/me');
+        const responseData = await response.json();
+        
+        console.log();
+        console.log(chalk.bold('User Information:'));
+        
+        // Extract user data from the response (API returns {user: {...}, message: "..."})
+        const userData = responseData.user || responseData;
+        
+        // Check if we got any data at all
+        if (!userData || Object.keys(userData).length === 0) {
+          console.log(chalk.dim('  No user data available'));
+          return;
+        }
+        
+        if (userData.email) {
+          console.log(chalk.dim(`  Email: ${userData.email}`));
+        }
+        if (userData.name) {
+          console.log(chalk.dim(`  Name: ${userData.name}`));
+        }
+        if (userData.username) {
+          console.log(chalk.dim(`  Username: ${userData.username}`));
+        }
+        if (userData.provider) {
+          console.log(chalk.dim(`  Provider: ${userData.provider}`));
+        }
+        if (userData.createdAt) {
+          console.log(chalk.dim(`  Created: ${new Date(userData.createdAt).toLocaleString()}`));
+        }
+        if (userData.id) {
+          console.log(chalk.dim(`  User ID: ${userData.id}`));
+        }
+        if (userData.userId) {
+          console.log(chalk.dim(`  User ID: ${userData.userId}`));
+        }
+      } catch (error) {
+        if (error instanceof SessionBaseAPIError) {
+          console.log(chalk.yellow('⚠ Could not fetch user details'));
+          console.log(chalk.dim(`  ${error.message}`));
+        } else {
+          console.error(chalk.red('Error fetching user data:'), error);
+        }
       }
     } catch (error) {
       console.error(chalk.red('Error checking authentication:'), error);
