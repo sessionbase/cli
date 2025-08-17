@@ -1,9 +1,8 @@
 import { Command } from 'commander';
-import { createInterface } from 'node:readline';
 import open from 'open';
 import chalk from 'chalk';
 import { renderFilled } from 'oh-my-logo';
-import { WEB_BASE_URL } from '../config.js';
+import { WEB_BASE_URL, BASE_URL } from '../config.js';
 import { storeToken } from '../auth.js';
 
 /**
@@ -19,60 +18,110 @@ function validateToken(token: string): boolean {
     return parts.length === 3;
   }
   
-  // For opaque tokens, just check it's not empty and reasonable length
+  // For opaque tokens (API keys), check it starts with sb_live_
+  if (token.startsWith('sb_live_')) {
+    return token.length === 72; // sb_live_ + 64 hex chars
+  }
+  
+  // For other tokens, just check it's not empty and reasonable length
   return token.trim().length > 0;
 }
 
 /**
- * Prompt user for token input
+ * Start device authorization flow
  */
-async function promptForToken(): Promise<string> {
-  const rl = createInterface({ 
-    input: process.stdin, 
-    output: process.stdout 
+async function startDeviceFlow(): Promise<{
+  device_code: string;
+  verification_url: string;
+  expires_in: number;
+  interval: number;
+}> {
+  const response = await fetch(`${BASE_URL}/auth/device/start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
   });
-  
-  return new Promise<string>((resolve) => {
-    rl.question('Paste token here: ', (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
+
+  if (!response.ok) {
+    throw new Error(`Device flow start failed: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
 }
+
+/**
+ * Poll for device authorization completion
+ */
+async function pollDeviceComplete(deviceCode: string, interval: number): Promise<string> {
+  const pollInterval = interval * 1000; // Convert to milliseconds
+  const maxAttempts = 120; // 10 minutes max (120 * 5 seconds)
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+    
+    try {
+      const response = await fetch(`${BASE_URL}/auth/device/poll`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ device_code: deviceCode }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          // Device code expired or invalid
+          throw new Error('Device code expired or invalid');
+        }
+        continue; // Retry on other errors
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'complete') {
+        return result.apiKey;
+      }
+      
+      // Status is 'pending', continue polling
+    } catch (error) {
+      console.error('Polling error:', error);
+      throw error;
+    }
+  }
+  
+  throw new Error('Device authorization timed out');
+}
+
 
 export function createLoginCommand(): Command {
   const command = new Command('login');
   
   command
     .description('Authenticate with SessionBase')
-    .option('--token <string>', 'Provide token directly (bypasses interactive prompt)')
-    .action(async (options) => {
+    .action(async () => {
       try {
-        let token: string;
+        // Device flow (only option)
+        console.log(chalk.blue('⭢ Opening browser to complete login…'));
         
-        // If token is provided via flag, use it directly
-        if (options.token) {
-          token = options.token.trim();
-        } else {
-          // Interactive flow: try to open browser, then prompt for token
-          const loginUrl = `${WEB_BASE_URL}/login?cli=true`;
-          
-          console.log(chalk.blue(`⭢ Opening ${loginUrl} …`));
-          
-          try {
-            await open(loginUrl);
-          } catch (error) {
-            console.log(chalk.yellow('Could not open browser automatically.'));
-            console.log(chalk.dim(`Please visit: ${loginUrl}`));
-          }
-          
-          console.log();
-          console.log('────────────────────────────────');
-          console.log(' Login in your browser window…');
-          console.log('────────────────────────────────');
-          
-          token = await promptForToken();
+        // Start device flow
+        const deviceFlow = await startDeviceFlow();
+        
+        // Open browser to verification URL
+        try {
+          await open(deviceFlow.verification_url);
+        } catch (error) {
+          console.log(chalk.yellow('Could not open browser automatically.'));
+          console.log(chalk.dim(`Please visit: ${deviceFlow.verification_url}`));
         }
+        
+        console.log();
+        console.log('────────────────────────────────');
+        console.log(' Waiting for you to finish authentication…');
+        console.log('────────────────────────────────');
+        
+        // Poll for completion
+        const token = await pollDeviceComplete(deviceFlow.device_code, deviceFlow.interval);
         
         // Basic token validation
         if (!validateToken(token)) {
@@ -92,7 +141,7 @@ export function createLoginCommand(): Command {
         console.log();
         
         // Success feedback
-        console.log(chalk.green('✔ Logged in!'), chalk.dim('(token stored securely)'));
+        console.log(chalk.green('✔ Logged in!'), chalk.dim('(API key stored securely)'));
         console.log();
         
         // Show help to get started
