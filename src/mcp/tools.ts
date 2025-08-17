@@ -42,7 +42,7 @@ export const listSessionsTool = {
 
 export const pushSessionTool = {
   name: 'push_session',
-  description: 'Push a chat session to SessionBase. IMPORTANT: Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful.',
+  description: 'Push a chat session to SessionBase. IMPORTANT: Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful. If a Gemini session is stale (>10 minutes old), you can use the force parameter to push it anyway.',
   inputSchema: z.object({
     filePath: z.string().optional().describe('Path to the session file (.json or .jsonl)'),
     claude: z.boolean().optional().describe('Push most recent Claude Code session from current directory'),
@@ -51,7 +51,8 @@ export const pushSessionTool = {
     private: z.boolean().optional().describe('Make the session private'),
     title: z.string().optional().describe('RECOMMENDED: Generate a clear, descriptive title that summarizes what was accomplished or discussed in this session (e.g., "Built SessionBase MCP Server", "Debugged React Authentication Issues")'),
     tags: z.string().optional().describe('RECOMMENDED: Generate relevant comma-separated tags based on technologies, topics, or tasks discussed (e.g., "typescript,mcp,sessionbase,api" or "react,debugging,authentication,frontend")'),
-    summary: z.string().optional().describe('RECOMMENDED: Generate a 1-2 sentence summary of the key outcomes, solutions, or learnings from this conversation to help others understand the session\'s value')
+    summary: z.string().optional().describe('RECOMMENDED: Generate a 1-2 sentence summary of the key outcomes, solutions, or learnings from this conversation to help others understand the session\'s value'),
+    force: z.boolean().optional().describe('Set to true to push old Gemini checkpoints without age verification. Use when user wants to proceed with stale sessions.')
   }),
   handler: async (params: {
     filePath?: string;
@@ -62,6 +63,7 @@ export const pushSessionTool = {
     title?: string;
     tags?: string;
     summary?: string;
+    force?: boolean;
   }) => {
     try {
       const result = await cli.pushSession(params.filePath, {
@@ -71,7 +73,8 @@ export const pushSessionTool = {
         private: params.private,
         title: params.title,
         tags: params.tags,
-        summary: params.summary
+        summary: params.summary,
+        force: params.force
       });
       return {
         content: [{
@@ -90,6 +93,46 @@ export const pushSessionTool = {
             text: `No Gemini CLI checkpoints found for this project. To create a session that can be pushed, run \`/chat save\` in your Gemini CLI session first, then try pushing again.`
           }],
           isError: true
+        };
+      }
+      
+      // Check if this is a stale checkpoint error (non-interactive mode)
+      if (params.gemini && errorMessage.includes('Checkpoint is') && errorMessage.includes('old. Use --force to proceed')) {
+        // Extract the age from the error message
+        const ageMatch = errorMessage.match(/Checkpoint is (.+?) old\./);
+        const age = ageMatch ? ageMatch[1] : 'more than 10 minutes';
+        
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `⚠️  **Stale Gemini Checkpoint Detected**
+
+The most recent Gemini CLI checkpoint is **${age} old**.
+
+**You need to choose one of these options:**
+
+1. **Create fresh checkpoint**: 
+   - Switch to your Gemini CLI terminal
+   - Run \`/chat save <tag>\` to create a new checkpoint
+   - Then come back and try pushing again
+
+2. **Push old session anyway**: 
+   - I can push the old session using the force option
+
+The MCP cannot run \`/chat save\` for you - you must do this in your actual Gemini CLI session.`
+          }],
+          isError: false
+        };
+      }
+      
+      // Check if this is a user-cancelled upload due to old checkpoint
+      if (params.gemini && errorMessage.includes('Upload cancelled')) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `Upload cancelled due to old checkpoint. Run \`/chat save <tag>\` in your Gemini CLI session to create a fresh checkpoint, then try pushing again.`
+          }],
+          isError: false // This is intentional cancellation, not an error
         };
       }
       

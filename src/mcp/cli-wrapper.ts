@@ -49,6 +49,7 @@ export class SessionbaseCLI {
     title?: string;
     tags?: string;
     summary?: string;
+    force?: boolean;
   } = {}): Promise<string> {
     const args = ['push'];
     if (filePath) args.push(filePath);
@@ -59,6 +60,7 @@ export class SessionbaseCLI {
     if (options.title) args.push('--title', options.title);
     if (options.tags) args.push('--tags', options.tags);
     if (options.summary) args.push('--summary', options.summary);
+    if (options.force) args.push('--force');
     
     const result = await this.runCommand(args);
     return result.stdout;

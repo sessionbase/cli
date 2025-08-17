@@ -20,6 +20,7 @@ export const pushCommand = new Command('push')
   .option('--title <title>', 'Session title')
   .option('--tags <tags>', 'Comma-separated tags')
   .option('--summary <summary>', 'Session summary')
+  .option('--force', 'Skip age check and proceed with old checkpoint')
   .action(async (filePath, options) => {
     // Validate mutually exclusive options
     const platformFlags = [options.claude, options.gemini, options.qchat].filter(Boolean).length;
@@ -200,7 +201,7 @@ async function detectMostRecentSession(options: any, spinner: any): Promise<stri
   if (options.claude) {
     return await findMostRecentClaudeSession(currentDir, spinner);
   } else if (options.gemini) {
-    return await findMostRecentGeminiSession(currentDir, spinner);
+    return await findMostRecentGeminiSession(currentDir, spinner, options);
   } else if (options.qchat) {
     return await findMostRecentQChatSession(currentDir, spinner);
   }
@@ -263,7 +264,7 @@ async function findMostRecentClaudeSession(targetPath: string, spinner: any): Pr
   }
 }
 
-async function findMostRecentGeminiSession(targetPath: string, spinner: any): Promise<string | null> {
+async function findMostRecentGeminiSession(targetPath: string, spinner: any, options?: any): Promise<string | null> {
   try {
     if (!existsSync(GEMINI_CLI_PATH)) {
       spinner.fail('No Gemini CLI sessions found (directory does not exist)');
@@ -310,6 +311,59 @@ async function findMostRecentGeminiSession(targetPath: string, spinner: any): Pr
     if (!mostRecentFile) {
       spinner.fail(`No valid Gemini CLI sessions found for project: ${targetPath}`);
       return null;
+    }
+    
+    // Check if the most recent file is older than 10 minutes
+    const tenMinutesInMs = 10 * 60 * 1000;
+    const now = Date.now();
+    const fileAge = now - mostRecentTime;
+    
+    if (fileAge > tenMinutesInMs && !options?.force) {
+      const minutesOld = Math.floor(fileAge / (60 * 1000));
+      const hoursOld = Math.floor(fileAge / (60 * 60 * 1000));
+      const daysOld = Math.floor(fileAge / (24 * 60 * 60 * 1000));
+      
+      let ageDescription;
+      if (daysOld > 0) {
+        ageDescription = `${daysOld} day${daysOld !== 1 ? 's' : ''}`;
+      } else if (hoursOld > 0) {
+        ageDescription = `${hoursOld} hour${hoursOld !== 1 ? 's' : ''}`;
+      } else {
+        ageDescription = `${minutesOld} minute${minutesOld !== 1 ? 's' : ''}`;
+      }
+      
+      spinner.warn(`Warning: Most recent Gemini CLI checkpoint is ${ageDescription} old.`);
+      console.log(chalk.yellow('Consider running "/chat save <tag>" in Gemini CLI to create a fresh checkpoint before uploading.'));
+      console.log(chalk.gray(`Found checkpoint: ${mostRecentFile}`));
+      
+      // Check if we're in an interactive terminal (TTY)
+      if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        // Non-interactive mode (like MCP) - fail with clear message
+        spinner.fail(`Checkpoint is ${ageDescription} old. Use --force to proceed or create fresh checkpoint with "/chat save".`);
+        return null;
+      }
+      
+      console.log('');
+      console.log(chalk.cyan('Do you want to continue with this older checkpoint? (y/N)'));
+      
+      // Wait for user input (only in interactive mode)
+      const { createInterface } = await import('readline');
+      const rl = createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+      
+      const answer = await new Promise<string>((resolve) => {
+        rl.question('', (input) => {
+          rl.close();
+          resolve(input.trim().toLowerCase());
+        });
+      });
+      
+      if (answer !== 'y' && answer !== 'yes') {
+        console.log(chalk.gray('Upload cancelled. Run "/chat save <tag>" in Gemini CLI to create a fresh checkpoint.'));
+        return null;
+      }
     }
     
     spinner.succeed(`Found most recent Gemini CLI session: ${mostRecentFile}`);
