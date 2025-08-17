@@ -1,15 +1,15 @@
 import { Command } from 'commander';
 import { readdir, stat, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { getClaudeCodePath, getGeminiCliPath, getAmazonQPath } from '../utils/paths.js';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import chalk from 'chalk';
 import sqlite3 from 'sqlite3';
 
-const CLAUDE_CODE_PATH = join(homedir(), '.claude', 'projects');
-const GEMINI_CLI_PATH = join(homedir(), '.gemini', 'tmp');
-const Q_DATABASE_PATH = join(homedir(), 'Library/Application Support/amazon-q/data.sqlite3');
+const CLAUDE_CODE_PATH = getClaudeCodePath();
+const GEMINI_CLI_PATH = getGeminiCliPath();
+const Q_DATABASE_PATH = getAmazonQPath();
 
 export const lsCommand = new Command('ls')
   .description('List local chat sessions')

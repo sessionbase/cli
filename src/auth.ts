@@ -1,11 +1,11 @@
 import keytar from 'keytar';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { getConfigDir } from './utils/paths.js';
 
 const SERVICE_NAME = 'sessionbase-cli';
 const ACCOUNT_NAME = 'default';
-const CONFIG_DIR = join(homedir(), '.config', 'sessionbase');
+const CONFIG_DIR = join(getConfigDir(), 'sessionbase');
 const TOKEN_FILE = join(CONFIG_DIR, 'token.json');
 
 /**

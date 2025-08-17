@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { readFileSync, existsSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { getClaudeCodePath, getGeminiCliPath, getAmazonQPath } from '../utils/paths.js';
 import { createHash } from 'node:crypto';
 import sqlite3 from 'sqlite3';
 import { getToken } from '../auth.js';
@@ -190,9 +190,9 @@ export const pushCommand = new Command('push')
     }
   });
 
-const CLAUDE_CODE_PATH = join(homedir(), '.claude', 'projects');
-const GEMINI_CLI_PATH = join(homedir(), '.gemini', 'tmp');
-const Q_DATABASE_PATH = join(homedir(), 'Library/Application Support/amazon-q/data.sqlite3');
+const CLAUDE_CODE_PATH = getClaudeCodePath();
+const GEMINI_CLI_PATH = getGeminiCliPath();
+const Q_DATABASE_PATH = getAmazonQPath();
 
 async function detectMostRecentSession(options: any, spinner: any): Promise<string | null> {
   const currentDir = process.cwd();
