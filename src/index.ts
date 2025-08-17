@@ -23,14 +23,12 @@ program
 import { lsCommand } from './commands/ls.js';
 import { createLoginCommand } from './commands/login.js';
 import { pushCommand } from './commands/push.js';
-import { pullCommand } from './commands/pull.js';
 import { whoamiCommand } from './commands/whoami.js';
 import { logoutCommand } from './commands/logout.js';
 
 program.addCommand(lsCommand);
 program.addCommand(createLoginCommand());
 program.addCommand(pushCommand);
-program.addCommand(pullCommand);
 program.addCommand(whoamiCommand);
 program.addCommand(logoutCommand);
 
