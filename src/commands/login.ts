@@ -146,9 +146,13 @@ export function createLoginCommand(): Command {
         
         // Show help to get started
         console.log(chalk.bold('Get started:'));
-        console.log(chalk.dim('  sessionbase --help      Show all commands'));
-        console.log(chalk.dim('  sessionbase ls           List your sessions'));
+        console.log(chalk.dim('  sessionbase --help       Show all commands'));
+        console.log(chalk.dim('  sessionbase ls           List your local sessions'));
         console.log(chalk.dim('  sessionbase push         Push a new session'));
+        console.log(chalk.dim('  sessionbase pull <id>    Pull a shared session'));
+        console.log(chalk.dim('  sessionbase whoami       Show auth status'));
+        console.log();
+        console.log(chalk.blue('Documentation: \u001b]8;;https://docs.sessionbase.ai\u001b\\https://docs.sessionbase.ai\u001b]8;;\u001b\\'));
         
       } catch (error) {
         console.error(chalk.red('Login failed:'), error);

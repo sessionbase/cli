@@ -179,10 +179,10 @@ export const pushCommand = new Command('push')
       const result = await response.json();
       
       spinner.succeed('Session pushed successfully!');
+      
+      const sessionUrl = `https://sessionbase.ai/sessions/${result.id}`;
       console.log(chalk.green(`Session ID: ${result.id}`));
-      if (result.url) {
-        console.log(chalk.blue(`URL: ${result.url}`));
-      }
+      console.log(chalk.blue(`\u001b]8;;${sessionUrl}\u001b\\${sessionUrl}\u001b]8;;\u001b\\`));
 
     } catch (error) {
       spinner.fail(`Push failed: ${error.message}`);
