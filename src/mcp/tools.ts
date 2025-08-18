@@ -42,12 +42,11 @@ export const listSessionsTool = {
 
 export const pushSessionTool = {
   name: 'push_session',
-  description: 'Push a chat session to SessionBase. IMPORTANT: Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful. If a Gemini session is stale (>10 minutes old), you can use the force parameter to push it anyway.',
+  description: 'Push a chat session to SessionBase. IMPORTANT: You must specify which client you are - if you are Claude Code, use claude=true; if you are Gemini CLI, use gemini=true; if you are Amazon Q Chat, use qchat=true. Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful. If a Gemini session is stale (>10 minutes old), you can use the force parameter to push it anyway.',
   inputSchema: z.object({
-    filePath: z.string().optional().describe('Path to the session file (.json or .jsonl)'),
-    claude: z.boolean().optional().describe('Push most recent Claude Code session from current directory'),
-    gemini: z.boolean().optional().describe('Push most recent Gemini CLI session from current directory'),
-    qchat: z.boolean().optional().describe('Push most recent Amazon Q Chat session from current directory'),
+    claude: z.boolean().optional().describe('Set to true if you are Claude Code'),
+    gemini: z.boolean().optional().describe('Set to true if you are Gemini CLI'),
+    qchat: z.boolean().optional().describe('Set to true if you are Amazon Q Chat'),
     private: z.boolean().optional().describe('Make the session private'),
     title: z.string().optional().describe('RECOMMENDED: Generate a clear, descriptive title that summarizes what was accomplished or discussed in this session (e.g., "Built SessionBase MCP Server", "Debugged React Authentication Issues")'),
     tags: z.string().optional().describe('RECOMMENDED: Generate relevant comma-separated tags based on technologies, topics, or tasks discussed (e.g., "typescript,mcp,sessionbase,api" or "react,debugging,authentication,frontend")'),
@@ -55,7 +54,6 @@ export const pushSessionTool = {
     force: z.boolean().optional().describe('Set to true to push old Gemini checkpoints without age verification. Use when user wants to proceed with stale sessions.')
   }),
   handler: async (params: {
-    filePath?: string;
     claude?: boolean;
     gemini?: boolean;
     qchat?: boolean;
@@ -66,7 +64,25 @@ export const pushSessionTool = {
     force?: boolean;
   }) => {
     try {
-      const result = await cli.pushSession(params.filePath, {
+      // Check if no client was specified
+      if (!params.claude && !params.gemini && !params.qchat) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `❌ **No client specified**
+
+You must specify which AI client you are:
+- If you are **Claude Code**, use: claude=true
+- If you are **Gemini CLI**, use: gemini=true  
+- If you are **Amazon Q Chat**, use: qchat=true
+
+Example: \`sessionbase push --claude\``
+          }],
+          isError: true
+        };
+      }
+
+      const result = await cli.pushSession(undefined, {
         claude: params.claude,
         gemini: params.gemini,
         qchat: params.qchat,
