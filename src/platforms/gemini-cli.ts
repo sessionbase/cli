@@ -190,13 +190,18 @@ export class GeminiCliProvider implements SessionProvider {
             ? await this.parseGeminiSessionMetadata(filePath)
             : await this.parseGeminiSessionWithContext(filePath);
           
+          // Use the directory hash + tag as consistent ID (same hash Gemini CLI uses)
+          // For untagged checkpoints, add timestamp to avoid collisions
+          const consistentId = tag === 'default' 
+            ? `${hashDir}-default-${stats.mtime.getTime()}`
+            : `${hashDir}-${tag}`;
+          
           sessions.push({
-            id: tag,
+            id: consistentId,
             filePath,
             projectPath: knownProjectPath || (sessionData as any).projectPath || `Unknown (${hashDir.substring(0, 8)}...)`,
             lastModified: stats.mtime,
             messageCount: sessionData.messageCount,
-            toolCalls: sessionData.toolCalls,
             firstMessagePreview: sessionData.firstMessagePreview,
             platform: 'gemini-cli',
             messages: [], // We don't load full messages for listing
@@ -227,11 +232,6 @@ export class GeminiCliProvider implements SessionProvider {
       !(msg.role === 'user' && msg.parts?.[0]?.functionResponse)
     );
     
-    // Count tool calls
-    const toolCalls = data.filter(msg => 
-      msg.role === 'model' && msg.parts?.[0]?.functionCall
-    ).length;
-    
     // Get first user message preview
     let firstMessagePreview = '';
     const firstUserMessage = data.find(msg => 
@@ -255,7 +255,6 @@ export class GeminiCliProvider implements SessionProvider {
     
     return {
       messageCount: actualMessages.length,
-      toolCalls,
       firstMessagePreview
     };
   }
@@ -272,11 +271,6 @@ export class GeminiCliProvider implements SessionProvider {
     const actualMessages = data.filter(msg => 
       !(msg.role === 'user' && msg.parts?.[0]?.functionResponse)
     );
-    
-    // Count tool calls
-    const toolCalls = data.filter(msg => 
-      msg.role === 'model' && msg.parts?.[0]?.functionCall
-    ).length;
     
     // Extract project path from context message
     let projectPath = null;
@@ -317,7 +311,6 @@ export class GeminiCliProvider implements SessionProvider {
     
     return {
       messageCount: actualMessages.length,
-      toolCalls,
       firstMessagePreview,
       projectPath
     };

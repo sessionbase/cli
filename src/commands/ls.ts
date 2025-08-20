@@ -65,7 +65,7 @@ async function listAllPlatforms(filterPath?: string, showGlobal?: boolean) {
       if (sessions.length === 0) {
         console.log(chalk.yellow(`  No sessions found`));
       } else {
-        displaySessions(sessions, showGlobal);
+        displaySessions(sessions, showGlobal, provider);
         foundAnySessions = true;
       }
     } catch (error: any) {
@@ -97,14 +97,14 @@ async function listSinglePlatform(provider: any, filterPath?: string, showGlobal
     }
 
     console.log(chalk.bold.blue(`\n${provider.emoji} Found ${sessions.length} ${provider.displayName} session${sessions.length === 1 ? '' : 's'} for ${scope}:\n`));
-    displaySessions(sessions, showGlobal);
+    displaySessions(sessions, showGlobal, provider);
 
   } catch (error: any) {
     console.error(chalk.red(`Error listing ${provider.displayName} sessions:`), error.message);
   }
 }
 
-function displaySessions(sessions: SessionInfo[], showGlobal?: boolean) {
+function displaySessions(sessions: SessionInfo[], showGlobal?: boolean, provider?: any) {
   if (showGlobal) {
     // Group by project for better readability
     const sessionsByProject = sessions.reduce((acc: any, session) => {
@@ -120,41 +120,51 @@ function displaySessions(sessions: SessionInfo[], showGlobal?: boolean) {
       console.log(chalk.bold.yellow(`\n${projectPath}:`));
       projectSessions.forEach((session: SessionInfo) => {
         totalIndex++;
-        displaySingleSession(session, sessions.length - totalIndex + 1);
+        displaySingleSession(session, sessions.length - totalIndex + 1, provider);
       });
     });
   } else {
     sessions.forEach((session, index) => {
-      displaySingleSession(session, sessions.length - index);
+      displaySingleSession(session, sessions.length - index, provider);
     });
   }
 }
 
-function displaySingleSession(session: SessionInfo, displayIndex: number) {
-  const date = session.lastModified.toLocaleDateString();
-  const time = session.lastModified.toLocaleTimeString();
-
-  console.log(chalk.bold.white(`${displayIndex}. ${session.title || session.id}`));
-  console.log(chalk.gray(`   💬 ${session.messageCount} messages | 📅 ${date} ${time}`));
-
-  if (session.firstMessagePreview) {
-    console.log(chalk.cyan(`   💭 "${session.firstMessagePreview}"`));
-  }
-
-  if (session.toolCalls && session.toolCalls > 0) {
-    console.log(chalk.magenta(`   🔧 ${session.toolCalls} tool calls`));
-  }
-
-  if (session.modelName) {
-    const displayModel = session.modelName.replace('CLAUDE_SONNET_4_20250514_V1_0', 'Claude Sonnet 4');
-    console.log(chalk.blue(`   🤖 ${displayModel}`));
-  }
-
-  console.log(chalk.dim(`   📁 ${session.filePath}`));
-
-  if (session.conversationId) {
-    console.log(chalk.dim(`   🆔 ${session.conversationId}`));
-  }
+function displaySingleSession(session: SessionInfo, displayIndex: number, provider?: any) {
+  // Use first message preview as title if available, otherwise fall back to generic title
+  const title = session.firstMessagePreview || session.title || session.id;
+  
+  console.log(chalk.bold.white(`${displayIndex}. ${title}`));
+  
+  // Display message count and relative time
+  const relativeTime = getRelativeTime(session.lastModified);
+  console.log(chalk.gray(`   💬 ${session.messageCount} messages | ${relativeTime}`));
+  
+  // Display platform and session ID
+  const platformDisplay = provider 
+    ? `${provider.displayName} ${provider.emoji} ${session.id}` 
+    : `💬 Chat ${session.id}`;
+  console.log(chalk.dim(`   ${platformDisplay}`));
 
   console.log(''); // Empty line for spacing
 }
+
+function getRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (days > 0) {
+    return `${days} day${days !== 1 ? 's' : ''} ago`;
+  } else if (hours > 0) {
+    return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  } else if (minutes > 0) {
+    return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+  } else {
+    return 'Just now';
+  }
+}
+

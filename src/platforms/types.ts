@@ -27,7 +27,6 @@ export interface SessionInfo extends SessionData {
   projectPath: string;
   lastModified: Date;
   firstMessagePreview?: string;
-  toolCalls?: number;
 }
 
 export interface SessionProvider {

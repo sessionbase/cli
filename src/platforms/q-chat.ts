@@ -26,18 +26,15 @@ export class QChatProvider implements SessionProvider {
           const sessionData = this.parseQConversationMetadata(conversation.conversationData);
           
           sessions.push({
-            id: conversation.conversationId.substring(0, 8),
-            filePath: `Q Database (${conversation.conversationId.substring(0, 8)}...)`,
+            id: conversation.conversationId,
+            filePath: `Q Database (${conversation.conversationId})`,
             projectPath: conversation.directoryPath,
             lastModified: new Date(sessionData.lastActivity),
             messageCount: sessionData.messageCount,
-            toolCalls: sessionData.toolCalls,
             firstMessagePreview: sessionData.firstMessagePreview,
             platform: 'qchat',
             messages: [], // We don't load full messages for listing
-            title: 'Q Chat Session',
-            modelName: sessionData.model,
-            conversationId: conversation.conversationId
+            title: 'Q Chat Session'
           });
         } catch (error) {
           // Skip conversations we can't parse
@@ -54,18 +51,15 @@ export class QChatProvider implements SessionProvider {
           const sessionData = this.parseQConversationMetadata(conversation.conversationData);
           
           sessions.push({
-            id: conversation.conversationId.substring(0, 8),
-            filePath: `Q Database (${conversation.conversationId.substring(0, 8)}...)`,
+            id: conversation.conversationId,
+            filePath: `Q Database (${conversation.conversationId})`,
             projectPath: targetPath,
             lastModified: new Date(sessionData.lastActivity),
             messageCount: sessionData.messageCount,
-            toolCalls: sessionData.toolCalls,
             firstMessagePreview: sessionData.firstMessagePreview,
             platform: 'qchat',
             messages: [], // We don't load full messages for listing
-            title: 'Q Chat Session',
-            modelName: sessionData.model,
-            conversationId: conversation.conversationId
+            title: 'Q Chat Session'
           });
         } catch (error) {
           // Skip conversations we can't parse
@@ -190,22 +184,20 @@ export class QChatProvider implements SessionProvider {
   private parseQConversationMetadata(conversationData: any) {
     const history = conversationData.history || [];
     let messageCount = 0;
-    let toolCalls = 0;
     let firstMessagePreview = '';
     let lastActivity = Date.now();
 
     // Parse the conversation history
     for (const turn of history) {
-      let userMessage, assistantMessage;
+      let userMessage;
       
       // Handle both old array format and new object format
       if (Array.isArray(turn) && turn.length >= 2) {
         // Old format: [userMessage, assistantMessage]
-        [userMessage, assistantMessage] = turn;
-      } else if (turn && typeof turn === 'object' && turn.user && turn.assistant) {
+        [userMessage] = turn;
+      } else if (turn && typeof turn === 'object' && turn.user) {
         // New format: {user: userMessage, assistant: assistantMessage}
         userMessage = turn.user;
-        assistantMessage = turn.assistant;
       } else {
         // Skip invalid entries
         continue;
@@ -226,26 +218,12 @@ export class QChatProvider implements SessionProvider {
           firstMessagePreview += '...';
         }
       }
-      
-      // Count tool calls (check for Response or ToolUse with message_id, indicates tool usage)
-      if (assistantMessage?.Response?.message_id || assistantMessage?.ToolUse?.message_id) {
-        // This is a rough heuristic - could be improved by checking the actual content
-        const content = assistantMessage?.Response?.content || assistantMessage?.ToolUse?.content || '';
-        if (content.includes('🛠️') || content.includes('tool')) {
-          toolCalls++;
-        }
-      }
     }
-
-    // Extract model information
-    const model = conversationData.model || 'Unknown Model';
 
     return {
       messageCount,
-      toolCalls,
       firstMessagePreview,
-      lastActivity,
-      model
+      lastActivity
     };
   }
 

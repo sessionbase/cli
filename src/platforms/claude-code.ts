@@ -7,7 +7,7 @@ import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './
 export class ClaudeCodeProvider implements SessionProvider {
   readonly platform: SupportedPlatform = 'claude-code';
   readonly displayName = 'Claude Code';
-  readonly emoji = '📋';
+  readonly emoji = '🟠';
 
   async isAvailable(): Promise<boolean> {
     return existsSync(getClaudeCodePath());
@@ -133,7 +133,6 @@ export class ClaudeCodeProvider implements SessionProvider {
             projectPath: projectPath,
             lastModified: stats.mtime,
             messageCount: sessionData.messageCount,
-            toolCalls: sessionData.toolCalls,
             firstMessagePreview: sessionData.firstMessagePreview,
             platform: 'claude-code',
             messages: [], // We don't load full messages for listing
@@ -159,21 +158,12 @@ export class ClaudeCodeProvider implements SessionProvider {
       throw new Error('Empty session file');
     }
     
-    let toolCalls = 0;
     let firstMessagePreview = '';
     
-    // Count tool calls and get first message preview
+    // Get first user message preview
     for (let i = 0; i < lines.length; i++) {
       try {
         const message = JSON.parse(lines[i]);
-        
-        // Count tool calls - look for tool_use content
-        if (message.message?.content && Array.isArray(message.message.content)) {
-          const toolUse = message.message.content.find((c: any) => c.type === 'tool_use');
-          if (toolUse) {
-            toolCalls++;
-          }
-        }
         
         // Get first user message preview
         if (!firstMessagePreview && message.message?.role === 'user' && message.message?.content) {
@@ -198,6 +188,7 @@ export class ClaudeCodeProvider implements SessionProvider {
             if (text.length > 100) {
               firstMessagePreview += '...';
             }
+            break; // Found what we need, exit loop
           }
         }
       } catch (error) {
@@ -208,7 +199,6 @@ export class ClaudeCodeProvider implements SessionProvider {
     
     return {
       messageCount: lines.length,
-      toolCalls,
       firstMessagePreview
     };
   }
