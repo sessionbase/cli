@@ -86,12 +86,9 @@ async function pollDeviceComplete(deviceCode: string, interval: number): Promise
 }
 
 
-export function createLoginCommand(): Command {
-  const command = new Command('login');
-  
-  command
-    .description('Authenticate with SessionBase')
-    .action(async () => {
+export const loginCommand = new Command('login')
+  .description('Authenticate with SessionBase')
+  .action(async () => {
       try {
         // Device flow (only option)
         console.log(chalk.blue('⭢ Opening browser to complete login…'));
@@ -149,7 +146,4 @@ export function createLoginCommand(): Command {
         console.error(chalk.red('Login failed:'), error);
         process.exit(1);
       }
-    });
-
-  return command;
-}
+  });

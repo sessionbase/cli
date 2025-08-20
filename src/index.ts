@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Get package.json for version
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageJson = JSON.parse(
@@ -16,18 +15,18 @@ const program = new Command();
 
 program
   .name('sessionbase')
-  .description('CLI tool for SessionBase - manage and share chat sessions')
+  .description('CLI tool for SessionBase - manage and share AI coding sessions')
   .version(packageJson.version);
 
 // Import and register command modules
 import { lsCommand } from './commands/ls.js';
-import { createLoginCommand } from './commands/login.js';
+import { loginCommand } from './commands/login.js';
 import { pushCommand } from './commands/push.js';
 import { whoamiCommand } from './commands/whoami.js';
 import { logoutCommand } from './commands/logout.js';
 
 program.addCommand(lsCommand);
-program.addCommand(createLoginCommand());
+program.addCommand(loginCommand);
 program.addCommand(pushCommand);
 program.addCommand(whoamiCommand);
 program.addCommand(logoutCommand);
