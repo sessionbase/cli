@@ -6,25 +6,17 @@ import { WEB_BASE_URL, BASE_URL } from '../config.js';
 import { storeToken } from '../auth.js';
 
 /**
- * Validate token format - basic sanity check
+ * Validate SessionBase API key format: sb_live_{64 hex chars}
  */
 function validateToken(token: string): boolean {
-  // Basic validation: should be longer than 20 chars and contain dots if JWT
-  if (token.length < 20) return false;
-  
-  // If it looks like a JWT (has dots), do basic structure check
-  if (token.includes('.')) {
-    const parts = token.split('.');
-    return parts.length === 3;
+  // Must start with sb_live_ and be exactly 72 characters
+  if (!token.startsWith('sb_live_') || token.length !== 72) {
+    return false;
   }
   
-  // For opaque tokens (API keys), check it starts with sb_live_
-  if (token.startsWith('sb_live_')) {
-    return token.length === 72; // sb_live_ + 64 hex chars
-  }
-  
-  // For other tokens, just check it's not empty and reasonable length
-  return token.trim().length > 0;
+  // Verify the suffix is valid hex (64 chars after sb_live_)
+  const hexPart = token.slice(8); // Remove 'sb_live_' prefix
+  return /^[a-f0-9]{64}$/i.test(hexPart);
 }
 
 /**
@@ -123,9 +115,9 @@ export function createLoginCommand(): Command {
         // Poll for completion
         const token = await pollDeviceComplete(deviceFlow.device_code, deviceFlow.interval);
         
-        // Basic token validation
+        // Validate API key format
         if (!validateToken(token)) {
-          console.error(chalk.red('✗ Invalid token format'));
+          console.error(chalk.red('✗ Invalid API key format (expected: sb_live_{64 hex chars})'));
           process.exit(1);
         }
         
