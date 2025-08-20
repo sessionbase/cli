@@ -51,9 +51,6 @@ whoamiCommand
         if (userData.createdAt) {
           console.log(chalk.dim(`  Created: ${new Date(userData.createdAt).toLocaleString()}`));
         }
-        if (userData.id) {
-          console.log(chalk.dim(`  User ID: ${userData.id}`));
-        }
         if (userData.userId) {
           console.log(chalk.dim(`  User ID: ${userData.userId}`));
         }
