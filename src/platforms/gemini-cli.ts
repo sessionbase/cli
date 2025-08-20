@@ -190,11 +190,12 @@ export class GeminiCliProvider implements SessionProvider {
             ? await this.parseGeminiSessionMetadata(filePath)
             : await this.parseGeminiSessionWithContext(filePath);
           
-          // Use the directory hash + tag as consistent ID (same hash Gemini CLI uses)
-          // For untagged checkpoints, add timestamp to avoid collisions
-          const consistentId = tag === 'default' 
+          // Generate clean, deterministic ID by hashing directory + tag + timestamp
+          const input = tag === 'default' 
             ? `${hashDir}-default-${stats.mtime.getTime()}`
             : `${hashDir}-${tag}`;
+          
+          const consistentId = createHash('sha256').update(input).digest('hex').substring(0, 16);
           
           sessions.push({
             id: consistentId,
