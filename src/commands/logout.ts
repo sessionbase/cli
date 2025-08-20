@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { clearToken, isAuthenticated } from '../auth.js';
+import { clearToken, isAuthenticated } from '../utils/auth.js';
 
 export const logoutCommand = new Command('logout');
 

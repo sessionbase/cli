@@ -1,4 +1,4 @@
-import { getToken } from '../auth.js';
+import { getToken } from '../utils/auth.js';
 import { BASE_URL } from '../config.js';
 
 export class SessionBaseAPIError extends Error {

@@ -1,7 +1,7 @@
 import keytar from 'keytar';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { getConfigDir } from './utils/paths.js';
+import { getConfigDir } from './paths.js';
 
 const SERVICE_NAME = 'sessionbase-cli';
 const ACCOUNT_NAME = 'default';

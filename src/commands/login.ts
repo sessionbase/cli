@@ -3,7 +3,7 @@ import open from 'open';
 import chalk from 'chalk';
 import { renderFilled } from 'oh-my-logo';
 import { WEB_BASE_URL, BASE_URL } from '../config.js';
-import { storeToken } from '../auth.js';
+import { storeToken } from '../utils/auth.js';
 
 /**
  * Validate SessionBase API key format: sb_live_{64 hex chars}

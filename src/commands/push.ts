@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { getClaudeCodePath, getGeminiCliPath, getAmazonQPath } from '../utils/paths.js';
 import { createHash } from 'node:crypto';
 import sqlite3 from 'sqlite3';
-import { getToken } from '../auth.js';
+import { getToken } from '../utils/auth.js';
 import { BASE_URL } from '../config.js';
 import chalk from 'chalk';
 import ora from 'ora';

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { isAuthenticated } from '../auth.js';
+import { isAuthenticated } from '../utils/auth.js';
 import { apiRequest, SessionBaseAPIError } from '../api/client.js';
 
 export const whoamiCommand = new Command('whoami');
