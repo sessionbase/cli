@@ -1,11 +1,10 @@
 import { Command } from 'commander';
 import { readFileSync } from 'node:fs';
-import { getToken } from '../utils/auth.js';
-import { BASE_URL } from '../config.js';
 import chalk from 'chalk';
 import ora from 'ora';
 import { platformRegistry } from '../platforms/index.js';
 import { SessionData } from '../platforms/types.js';
+import { sessionBaseClient } from '../api/client.js';
 
 export const pushCommand = new Command('push')
   .description('Push a chat session file or auto-detect most recent session')
@@ -37,13 +36,6 @@ export const pushCommand = new Command('push')
       
       // Validate platform options
       platformRegistry.validatePlatformOptions(options);
-      
-      // Get auth token
-      const token = await getToken();
-      if (!token) {
-        spinner.fail('Not authenticated. Please run `sessionbase login` first.');
-        process.exit(1);
-      }
       
       let sessionData: SessionData;
       
@@ -117,22 +109,7 @@ export const pushCommand = new Command('push')
       const payload = buildSessionPayload(sessionData, options);
       
       // Make the API call
-      const response = await fetch(`${BASE_URL}/sessions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        spinner.fail(`Push failed: ${response.status} ${response.statusText} - ${errorText}`);
-        process.exit(1);
-      }
-
-      const result = await response.json();
+      const result = await sessionBaseClient.uploadSession(payload);
       
       spinner.succeed('Session pushed successfully!');
       

@@ -1,56 +1,137 @@
 import { getToken } from '../utils/auth.js';
 import { BASE_URL } from '../config.js';
-
-export class SessionBaseAPIError extends Error {
-  constructor(
-    message: string,
-    public status?: number,
-    public response?: Response
-  ) {
-    super(message);
-    this.name = 'SessionBaseAPIError';
-  }
-}
+import {
+  SessionBaseAPIError,
+  DeviceFlowResponse,
+  DeviceTokenResponse,
+  SessionUploadResponse,
+  UserInfoResponse
+} from './types.js';
 
 /**
- * Make authenticated API requests to SessionBase
+ * Unified SessionBase API client
  */
-export async function apiRequest(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<Response> {
-  const token = await getToken();
-  
-  if (!token) {
-    throw new SessionBaseAPIError(
-      'Not authenticated. Please run `sessionbase login` first.'
-    );
+export class SessionBaseClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string = BASE_URL) {
+    this.baseUrl = baseUrl;
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
-  
-  const headers = new Headers(options.headers);
-  headers.set('Authorization', `Bearer ${token}`);
-  
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+    /**
+   * Start OAuth device flow
+   */
+  async startDeviceFlow(): Promise<DeviceFlowResponse> {
+    const response = await this.fetch('/auth/device/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }, false);
 
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    return await response.json();
+  }
+
+  /**
+   * Poll for device flow completion
+   */
+  async pollDeviceFlow(deviceCode: string): Promise<DeviceTokenResponse> {
+    const response = await this.fetch('/auth/device/poll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_code: deviceCode }),
+    }, false);
+
+    return await response.json();
+  }
+
+  /**
+   * Get current user information
+   */
+  async getUserInfo(): Promise<UserInfoResponse> {
+    const response = await this.fetch('/auth/me');
+    return await response.json();
+  }
+
+  /**
+   * Upload a session to SessionBase
+   */
+  async uploadSession(sessionData: any): Promise<SessionUploadResponse> {
+    const response = await this.fetch('/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionData),
+    });
+
+    return await response.json();
+  }
+
+  /**
+   * Make authenticated API calls
+   */
+  private async fetch(
+    endpoint: string,
+    options: RequestInit = {},
+    requireAuth: boolean = true
+  ): Promise<Response> {
+    // Setup request
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+    const headers = new Headers(options.headers);
     
-    try {
-      const errorBody = await response.text();
-      if (errorBody) {
-        errorMessage += ` - ${errorBody}`;
+    if (requireAuth) {
+      const token = await getToken();
+      if (!token) {
+        throw new SessionBaseAPIError(
+          'Not authenticated. Please run `sessionbase login` first.'
+        );
       }
-    } catch {
-      // Ignore errors when reading error body
+      headers.set('Authorization', `Bearer ${token}`);
     }
-    
-    throw new SessionBaseAPIError(errorMessage, response.status, response);
+
+    // Retry wrapper
+    return this.withRetry(async () => {
+      const response = await fetch(url, { ...options, headers });
+      
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        const message = `HTTP ${response.status}: ${response.statusText}${errorBody ? ` - ${errorBody}` : ''}`;
+        throw new SessionBaseAPIError(message, response.status, response);
+      }
+      
+      return response;
+    });
   }
 
-  return response;
+  /**
+   * Retry wrapper for network calls
+   * https://www.backoff.dev/?base=100&factor=2&retries=2&strategy=none
+   */
+  private async withRetry<T>(operation: () => Promise<T>): Promise<T> {
+    const maxRetries = 2;
+    const baseDelay = 100;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (error instanceof SessionBaseAPIError) {
+          // Don't retry 4xx client errors
+          if (error.status && error.status >= 400 && error.status < 500) {
+            throw error;
+          }
+        }
+
+        if (attempt === maxRetries) {
+          throw error instanceof SessionBaseAPIError 
+            ? error 
+            : new SessionBaseAPIError(`Network request failed: ${error}`);
+        }
+
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw new SessionBaseAPIError('Unexpected retry error');
+  }
 }
+
+export const sessionBaseClient = new SessionBaseClient();

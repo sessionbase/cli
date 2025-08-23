@@ -1,7 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { isAuthenticated } from '../utils/auth.js';
-import { apiRequest, SessionBaseAPIError } from '../api/client.js';
+import { sessionBaseClient } from '../api/client.js';
+import { SessionBaseAPIError } from '../api/types.js';
 
 export const whoamiCommand = new Command('whoami');
 
@@ -21,14 +22,13 @@ whoamiCommand
       
       try {
         // Fetch user data from the API
-        const response = await apiRequest('/auth/me');
-        const responseData = await response.json();
+        const responseData = await sessionBaseClient.getUserInfo();
         
         console.log();
         console.log(chalk.bold('User Information:'));
         
         // Extract user data from the response (API returns {user: {...}, message: "..."})
-        const userData = responseData.user || responseData;
+        const userData = responseData.user;
         
         // Check if we got any data at all
         if (!userData || Object.keys(userData).length === 0) {

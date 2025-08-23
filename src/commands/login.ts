@@ -2,8 +2,9 @@ import { Command } from 'commander';
 import open from 'open';
 import chalk from 'chalk';
 import { renderFilled } from 'oh-my-logo';
-import { WEB_BASE_URL, BASE_URL } from '../config.js';
 import { storeToken } from '../utils/auth.js';
+import { sessionBaseClient } from '../api/client.js';
+import { SessionBaseAPIError } from '../api/types.js';
 
 /**
  * Validate SessionBase API key format: sb_live_{64 hex chars}
@@ -22,24 +23,8 @@ function validateToken(token: string): boolean {
 /**
  * Start device authorization flow
  */
-async function startDeviceFlow(): Promise<{
-  device_code: string;
-  verification_url: string;
-  expires_in: number;
-  interval: number;
-}> {
-  const response = await fetch(`${BASE_URL}/auth/device/start`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Device flow start failed: ${response.status} ${response.statusText}`);
-  }
-
-  return await response.json();
+async function startDeviceFlow() {
+  return await sessionBaseClient.startDeviceFlow();
 }
 
 /**
@@ -53,32 +38,27 @@ async function pollDeviceComplete(deviceCode: string, interval: number): Promise
     await new Promise(resolve => setTimeout(resolve, pollInterval));
     
     try {
-      const response = await fetch(`${BASE_URL}/auth/device/poll`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ device_code: deviceCode }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 400) {
-          // Device code expired or invalid
-          throw new Error('Device code expired or invalid');
-        }
-        continue; // Retry on other errors
-      }
-
-      const result = await response.json();
+      const result = await sessionBaseClient.pollDeviceFlow(deviceCode);
       
       if (result.status === 'complete') {
-        return result.apiKey;
+        return result.apiKey || result.token || '';
       }
       
       // Status is 'pending', continue polling
+      continue;
     } catch (error) {
-      console.error('Polling error:', error);
-      throw error;
+      // Handle specific error cases
+      if (error instanceof SessionBaseAPIError && error.status === 400) {
+        throw new Error('Device code expired or invalid');
+      }
+      
+      // For other errors, continue polling unless it's the last attempt
+      if (attempt === maxAttempts - 1) {
+        throw error;
+      }
+      
+      // Continue polling on transient errors
+      continue;
     }
   }
   
