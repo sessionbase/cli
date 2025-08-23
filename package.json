@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "sessionbase": "./dist/index.js",
-    "sessionbase-mcp": "./dist/mcp.js"
+    "sessionbase-mcp": "./dist/mcp.js",
+    "sb": "./dist/index.js"
   },
   "engines": {
     "node": ">=18"
