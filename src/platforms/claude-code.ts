@@ -9,103 +9,152 @@ export class ClaudeCodeProvider implements SessionProvider {
   readonly displayName = 'Claude Code';
   readonly emoji = '🟠';
 
+  private encodeProjectPath(path: string): string {
+    return path.replace(/\//g, '-');
+  }
+
+  private decodeProjectPath(encodedPath: string): string {
+    return encodedPath.replace(/-/g, '/');
+  }
+
+  private sortSessionsByModified(sessions: SessionInfo[]): SessionInfo[] {
+    return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
+  }
+
+  // this should move up to the ls command
+  private async validateFilterPath(filterPath?: string): Promise<void> {
+    if (!filterPath) return;
+    
+    try {
+      const stats = await stat(filterPath);
+      if (!stats.isDirectory()) {
+        throw new Error(`Path '${filterPath}' is not a directory`);
+      }
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        throw new Error(`Directory '${filterPath}' does not exist`);
+      }
+      throw error;
+    }
+  }
+
   async isAvailable(): Promise<boolean> {
     return existsSync(getClaudeCodePath());
   }
 
   async listSessions(filterPath?: string, showGlobal?: boolean): Promise<SessionInfo[]> {
+    await this.validateFilterPath(filterPath);
+    
     const claudePath = getClaudeCodePath();
     const sessions: SessionInfo[] = [];
 
     if (showGlobal) {
-      // Scan all project directories
-      const projectDirs = await readdir(claudePath);
-      for (const encodedPath of projectDirs) {
-        const projectDir = join(claudePath, encodedPath);
-        const projectStats = await stat(projectDir);
-        
-        if (projectStats.isDirectory()) {
-          // Decode the directory name to get the actual path
-          const decodedPath = encodedPath.replace(/-/g, '/');
-          const projectSessions = await this.scanProjectDir(projectDir, decodedPath);
-          sessions.push(...projectSessions);
-        }
-      }
+      sessions.push(...await this.scanAllProjects(claudePath));
     } else {
-      // Single project
-      const targetPath = filterPath || process.cwd();
-      const encodedPath = targetPath.replace(/\//g, '-');
+      sessions.push(...await this.scanSingleProject(claudePath, filterPath));
+    }
+
+    return this.sortSessionsByModified(sessions);
+  }
+
+  private async scanAllProjects(claudePath: string): Promise<SessionInfo[]> {
+    const sessions: SessionInfo[] = [];
+    const projectDirs = await readdir(claudePath);
+    
+    for (const encodedPath of projectDirs) {
       const projectDir = join(claudePath, encodedPath);
+      const projectStats = await stat(projectDir);
       
-      if (existsSync(projectDir)) {
-        const projectSessions = await this.scanProjectDir(projectDir, targetPath);
+      if (projectStats.isDirectory()) {
+        const decodedPath = this.decodeProjectPath(encodedPath);
+        const projectSessions = await this.scanProjectDir(projectDir, decodedPath);
         sessions.push(...projectSessions);
       }
     }
+    
+    return sessions;
+  }
 
-    // Sort by last modified (oldest first, newest at bottom)
-    return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
+  private async scanSingleProject(claudePath: string, filterPath?: string): Promise<SessionInfo[]> {
+    const targetPath = filterPath || process.cwd();
+    const encodedPath = this.encodeProjectPath(targetPath);
+    const projectDir = join(claudePath, encodedPath);
+    
+    if (existsSync(projectDir)) {
+      return await this.scanProjectDir(projectDir, targetPath);
+    }
+    
+    return [];
   }
 
   async findMostRecentSession(targetPath: string): Promise<string | null> {
-    const encodedPath = targetPath.replace(/\//g, '-');
+    const encodedPath = this.encodeProjectPath(targetPath);
     const projectDir = join(getClaudeCodePath(), encodedPath);
     
-    if (!existsSync(projectDir)) {
-      return null;
-    }
-
-    const files = await readdir(projectDir);
-    const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
-
-    if (jsonlFiles.length === 0) {
-      return null;
-    }
-    
-    // Find most recent file
-    let mostRecentFile = null;
-    let mostRecentTime = 0;
-    
-    for (const jsonlFile of jsonlFiles) {
-      const sessionFile = join(projectDir, jsonlFile);
+    try {
+      const files = await readdir(projectDir);
+      let mostRecentFile = null;
+      let mostRecentTime = 0;
       
-      try {
-        const stats = await stat(sessionFile);
-        if (stats.mtime.getTime() > mostRecentTime) {
-          mostRecentTime = stats.mtime.getTime();
-          mostRecentFile = sessionFile;
+      for (const file of files) {
+        if (!file.endsWith('.jsonl')) continue;
+        
+        const filePath = join(projectDir, file);
+        
+        try {
+          const stats = await stat(filePath);
+          if (stats.mtime.getTime() > mostRecentTime) {
+            mostRecentTime = stats.mtime.getTime();
+            mostRecentFile = filePath;
+          }
+        } catch (error) {
+          // Skip files we can't read
+          continue;
         }
-      } catch (error) {
-        // Skip files we can't read
-        continue;
       }
+      
+      return mostRecentFile;
+    } catch (error) {
+      // Directory doesn't exist or can't be read
+      return null;
     }
-
-    return mostRecentFile;
   }
 
   async parseSession(filePath: string): Promise<SessionData> {
-    const content = await readFile(filePath, 'utf-8');
-    const lines = content.trim().split('\n').filter(line => line.trim());
-    
-    if (lines.length === 0) {
-      throw new Error('Empty session file');
-    }
+    const entries = await this.parseJsonlFile(filePath);
+    const metadata = this.extractClaudeMetadata(entries);
 
-    const entries = lines.map(line => JSON.parse(line));
-    
-    // Extract Claude session metadata from first entry
-    const firstEntry = entries[0];
-    const claudeSessionId = firstEntry?.sessionId;
-    const claudeCwd = firstEntry?.cwd;
-    
     return {
       messages: entries,
       title: `Claude Session ${new Date().toISOString().split('T')[0]}`,
       platform: 'claude-code',
       messageCount: entries.length,
-      sessionId: claudeSessionId,
-      cwd: claudeCwd
+      ...metadata
+    };
+  }
+
+  private async parseJsonlFile(filePath: string): Promise<any[]> {
+    const content = await readFile(filePath, 'utf-8');
+    const lines = content.trim().split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      throw new Error(`Empty session file: ${filePath}`);
+    }
+
+    return lines.map((line, index) => {
+      try {
+        return JSON.parse(line);
+      } catch (error) {
+        throw new Error(`Invalid JSON on line ${index + 1} in file ${filePath}: ${error}`);
+      }
+    });
+  }
+
+  private extractClaudeMetadata(entries: any[]): { sessionId?: string; cwd?: string } {
+    const firstEntry = entries[0];
+    return {
+      sessionId: firstEntry?.sessionId,
+      cwd: firstEntry?.cwd
     };
   }
 
@@ -151,55 +200,52 @@ export class ClaudeCodeProvider implements SessionProvider {
   }
 
   private async parseClaudeSessionMetadata(filePath: string) {
-    const content = await readFile(filePath, 'utf-8');
-    const lines = content.trim().split('\n').filter(line => line.trim());
-    
-    if (lines.length === 0) {
-      throw new Error('Empty session file');
-    }
-    
-    let firstMessagePreview = '';
-    
-    // Get first user message preview
-    for (let i = 0; i < lines.length; i++) {
-      try {
-        const message = JSON.parse(lines[i]);
-        
-        // Get first user message preview
-        if (!firstMessagePreview && message.message?.role === 'user' && message.message?.content) {
-          let text = '';
-          const content = message.message.content;
-          
-          if (typeof content === 'string') {
-            text = content;
-          } else if (Array.isArray(content)) {
-            const textContent = content.find((c: any) => c.type === 'text');
-            text = textContent?.text || '';
-          }
-          
-          // Clean up and truncate the preview
-          if (text) {
-            firstMessagePreview = text
-              .replace(/\n/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim()
-              .substring(0, 100);
-            
-            if (text.length > 100) {
-              firstMessagePreview += '...';
-            }
-            break; // Found what we need, exit loop
-          }
-        }
-      } catch (error) {
-        // Skip lines we can't parse
-        continue;
-      }
-    }
+    const entries = await this.parseJsonlFile(filePath);
+    const firstMessagePreview = this.extractFirstMessagePreview(entries);
     
     return {
-      messageCount: lines.length,
+      messageCount: entries.length,
       firstMessagePreview
     };
+  }
+
+  private extractFirstMessagePreview(entries: any[]): string {
+    for (const message of entries) {
+      if (message.message?.role === 'user' && message.message?.content) {
+        const text = this.extractClaudeMessageText(message);
+        if (text) {
+          return this.generatePreview(text);
+        }
+      }
+    }
+    return '';
+  }
+
+  private extractClaudeMessageText(message: any): string {
+    const content = message.message?.content;
+    
+    if (typeof content === 'string') {
+      return content;
+    }
+    
+    if (Array.isArray(content)) {
+      const textContent = content.find((c: any) => c.type === 'text');
+      return textContent?.text || '';
+    }
+    
+    return '';
+  }
+
+  private generatePreview(text: string): string {
+    const cleanedText = text
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (cleanedText.length <= 100) {
+      return cleanedText;
+    }
+
+    return cleanedText.substring(0, 100) + '...';
   }
 }
