@@ -2,6 +2,7 @@ import { readdir, stat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { createInterface } from 'node:readline';
 import chalk from 'chalk';
 import { getGeminiCliPath } from '../utils/paths.js';
 import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './types.js';
@@ -181,7 +182,6 @@ export class GeminiCliProvider implements SessionProvider {
     console.log(chalk.cyan('Do you want to continue with this older checkpoint? (y/N)'));
     
     // Wait for user input (only in interactive mode)
-    const { createInterface } = await import('readline');
     const rl = createInterface({
       input: process.stdin,
       output: process.stdout

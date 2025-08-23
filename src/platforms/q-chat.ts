@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { writeFile, stat, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sqlite3 from 'sqlite3';
@@ -10,65 +10,91 @@ export class QChatProvider implements SessionProvider {
   readonly displayName = 'Amazon Q Chat';
   readonly emoji = '🤖';
 
+  private sortSessionsByModified(sessions: SessionInfo[]): SessionInfo[] {
+    return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
+  }
+
+  private async validateFilterPath(filterPath?: string): Promise<void> {
+    if (!filterPath) return;
+    
+    try {
+      const stats = await stat(filterPath);
+      if (!stats.isDirectory()) {
+        throw new Error(`Path '${filterPath}' is not a directory`);
+      }
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        throw new Error(`Directory '${filterPath}' does not exist`);
+      }
+      throw error;
+    }
+  }
+
   async isAvailable(): Promise<boolean> {
     return existsSync(getAmazonQPath());
   }
 
   async listSessions(filterPath?: string, showGlobal?: boolean): Promise<SessionInfo[]> {
+    await this.validateFilterPath(filterPath);
+    
     const sessions: SessionInfo[] = [];
 
     if (showGlobal) {
-      // List all conversations from the database
-      const conversations = await this.readQDatabase();
-      
-      for (const conversation of conversations) {
-        try {
-          const sessionData = this.parseQConversationMetadata(conversation.conversationData);
-          
-          sessions.push({
-            id: conversation.conversationId,
-            filePath: `Q Database (${conversation.conversationId})`,
-            projectPath: conversation.directoryPath,
-            lastModified: new Date(sessionData.lastActivity),
-            messageCount: sessionData.messageCount,
-            firstMessagePreview: sessionData.firstMessagePreview,
-            platform: 'qchat',
-            messages: [], // We don't load full messages for listing
-            title: 'Q Chat Session'
-          });
-        } catch (error) {
-          // Skip conversations we can't parse
-          continue;
-        }
-      }
+      sessions.push(...await this.scanAllConversations());
     } else {
-      // Single project
-      const targetPath = filterPath ? resolve(filterPath) : process.cwd();
-      const conversation = await this.readQDatabase(targetPath);
-      
-      if (conversation) {
-        try {
-          const sessionData = this.parseQConversationMetadata(conversation.conversationData);
-          
-          sessions.push({
-            id: conversation.conversationId,
-            filePath: `Q Database (${conversation.conversationId})`,
-            projectPath: targetPath,
-            lastModified: new Date(sessionData.lastActivity),
-            messageCount: sessionData.messageCount,
-            firstMessagePreview: sessionData.firstMessagePreview,
-            platform: 'qchat',
-            messages: [], // We don't load full messages for listing
-            title: 'Q Chat Session'
-          });
-        } catch (error) {
-          // Skip conversations we can't parse
-        }
-      }
+      sessions.push(...await this.scanSingleProject(filterPath));
     }
 
-    // Sort by last modified (oldest first, newest at bottom)
-    return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
+    return this.sortSessionsByModified(sessions);
+  }
+
+  private async scanAllConversations(): Promise<SessionInfo[]> {
+    const sessions: SessionInfo[] = [];
+    const conversations = await this.readQDatabase();
+    
+    for (const conversation of conversations) {
+      try {
+        const sessionInfo = this.buildSessionInfo(conversation, conversation.directoryPath);
+        sessions.push(sessionInfo);
+      } catch (error) {
+        // Skip conversations we can't parse
+        continue;
+      }
+    }
+    
+    return sessions;
+  }
+
+  private async scanSingleProject(filterPath?: string): Promise<SessionInfo[]> {
+    const targetPath = filterPath ? resolve(filterPath) : process.cwd();
+    const conversation = await this.readQDatabase(targetPath);
+    
+    if (conversation) {
+      try {
+        const sessionInfo = this.buildSessionInfo(conversation, targetPath);
+        return [sessionInfo];
+      } catch (error) {
+        // Skip conversations we can't parse
+      }
+    }
+    
+    return [];
+  }
+
+  private buildSessionInfo(conversation: any, projectPath: string): SessionInfo {
+    const sessionData = this.parseQConversationMetadata(conversation.conversationData);
+    
+    return {
+      id: conversation.conversationId,
+      filePath: `Q Database (${conversation.conversationId})`,
+      projectPath: projectPath,
+      lastModified: new Date(sessionData.lastActivity),
+      messageCount: sessionData.messageCount,
+      firstMessagePreview: sessionData.firstMessagePreview,
+      platform: 'qchat',
+      messages: [], // We don't load full messages for listing
+      title: 'Q Chat Session'
+    };
   }
 
   async findMostRecentSession(targetPath: string): Promise<string | null> {
@@ -82,34 +108,42 @@ export class QChatProvider implements SessionProvider {
       // Validate the conversation data
       this.parseQConversationMetadata(conversation.conversationData);
       
-      // Create a temporary JSON file with the raw Q Chat data
-      const tempFileName = `/tmp/qchat-session-${Date.now()}.json`;
-      
-      await writeFile(tempFileName, JSON.stringify(conversation.conversationData, null, 2));
-      
-      return tempFileName;
-      
+      return await this.createTempSessionFile(conversation.conversationData);
     } catch (error) {
       return null;
     }
   }
 
+  private async createTempSessionFile(conversationData: any): Promise<string> {
+    const tempFileName = `/tmp/qchat-session-${Date.now()}.json`;
+    await writeFile(tempFileName, JSON.stringify(conversationData, null, 2));
+    return tempFileName;
+  }
+
   async parseSession(filePath: string): Promise<SessionData> {
-    const fs = await import('node:fs/promises');
-    const content = await fs.readFile(filePath, 'utf-8');
-    const data = JSON.parse(content);
+    const data = await this.parseJsonFile(filePath);
     
-    // Q Chat format - store raw data directly
-    const sessionData: SessionData = {
+    return {
       ...data, // Include all raw Q Chat data
       platform: 'qchat',
-      title: data.title || `Q Chat Session ${new Date().toISOString().split('T')[0]}`,
-      messageCount: data.history ? data.history.length * 2 : 0, // user + assistant pairs
+      title: this.generateSessionTitle(data),
+      messageCount: this.calculateMessageCount(data),
       modelName: data.model || 'unknown',
       messages: this.convertQChatToMessages(data)
     };
+  }
 
-    return sessionData;
+  private async parseJsonFile(filePath: string): Promise<any> {
+    const content = await readFile(filePath, 'utf-8');
+    return JSON.parse(content);
+  }
+
+  private generateSessionTitle(data: any): string {
+    return data.title || `Q Chat Session ${new Date().toISOString().split('T')[0]}`;
+  }
+
+  private calculateMessageCount(data: any): number {
+    return data.history ? data.history.length * 2 : 0; // user + assistant pairs
   }
 
   formatSessionDisplay(session: SessionInfo): string {
@@ -185,37 +219,21 @@ export class QChatProvider implements SessionProvider {
     const history = conversationData.history || [];
     let messageCount = 0;
     let firstMessagePreview = '';
-    let lastActivity = Date.now();
 
-    // Parse the conversation history
     for (const turn of history) {
-      let userMessage;
+      const userMessage = this.extractUserMessage(turn);
       
-      // Handle both old array format and new object format
-      if (Array.isArray(turn) && turn.length >= 2) {
-        // Old format: [userMessage, assistantMessage]
-        [userMessage] = turn;
-      } else if (turn && typeof turn === 'object' && turn.user) {
-        // New format: {user: userMessage, assistant: assistantMessage}
-        userMessage = turn.user;
-      } else {
-        // Skip invalid entries
+      if (!userMessage) {
         continue;
       }
       
       messageCount += 2; // User + Assistant
       
       // Extract first user message preview
-      if (!firstMessagePreview && userMessage?.content?.Prompt?.prompt) {
-        const text = userMessage.content.Prompt.prompt;
-        firstMessagePreview = text
-          .replace(/\n/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 100);
-        
-        if (text.length > 100) {
-          firstMessagePreview += '...';
+      if (!firstMessagePreview) {
+        const text = this.extractQChatPromptText(userMessage);
+        if (text) {
+          firstMessagePreview = this.generatePreview(text);
         }
       }
     }
@@ -223,29 +241,67 @@ export class QChatProvider implements SessionProvider {
     return {
       messageCount,
       firstMessagePreview,
-      lastActivity
+      lastActivity: Date.now()
     };
+  }
+
+  private extractUserMessage(turn: any): any | null {
+    // Handle both old array format and new object format
+    if (Array.isArray(turn) && turn.length >= 2) {
+      // Old format: [userMessage, assistantMessage]
+      return turn[0];
+    } else if (turn && typeof turn === 'object' && turn.user) {
+      // New format: {user: userMessage, assistant: assistantMessage}
+      return turn.user;
+    }
+    
+    return null;
+  }
+
+  private extractQChatPromptText(userMessage: any): string | null {
+    return userMessage?.content?.Prompt?.prompt || null;
+  }
+
+  private generatePreview(text: string): string {
+    const cleanedText = text
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    if (cleanedText.length <= 100) {
+      return cleanedText;
+    }
+    
+    return cleanedText.substring(0, 100) + '...';
+  }
+
+  private extractSessionId(conversationData: any): string {
+    return conversationData.conversation_id || `qchat-${Date.now()}`;
+  }
+
+  private extractTurnMessages(turn: any): { userMessage: any | null; assistantMessage: any | null } {
+    // Handle both old array format and new object format
+    if (Array.isArray(turn) && turn.length >= 2) {
+      // Old format: [userMessage, assistantMessage]
+      return { userMessage: turn[0], assistantMessage: turn[1] };
+    } else if (turn && typeof turn === 'object' && turn.user && turn.assistant) {
+      // New format: {user: userMessage, assistant: assistantMessage}
+      return { userMessage: turn.user, assistantMessage: turn.assistant };
+    }
+    
+    return { userMessage: null, assistantMessage: null };
   }
 
   private convertQChatToMessages(conversationData: any): any[] {
     const messages = [];
     const history = conversationData.history || [];
-    const sessionId = conversationData.conversation_id || `qchat-${Date.now()}`;
+    const sessionId = this.extractSessionId(conversationData);
     
     for (let i = 0; i < history.length; i++) {
       const turn = history[i];
-      let userMessage, assistantMessage;
+      const { userMessage, assistantMessage } = this.extractTurnMessages(turn);
       
-      // Handle both old array format and new object format
-      if (Array.isArray(turn) && turn.length >= 2) {
-        // Old format: [userMessage, assistantMessage]
-        [userMessage, assistantMessage] = turn;
-      } else if (turn && typeof turn === 'object' && turn.user && turn.assistant) {
-        // New format: {user: userMessage, assistant: assistantMessage}
-        userMessage = turn.user;
-        assistantMessage = turn.assistant;
-      } else {
-        // Skip invalid entries
+      if (!userMessage || !assistantMessage) {
         continue;
       }
       
