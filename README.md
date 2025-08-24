@@ -1,6 +1,6 @@
 # SessionBase CLI
 
-CLI tool for SessionBase - manage and share AI chat sessions from Claude Code, Gemini CLI, and Amazon Q Chat.
+CLI tool for SessionBase - manage and share AI coding sessions from Claude Code, Gemini CLI, and Amazon Q Chat.
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ npm install -g @sessionbase/cli
 
 This provides two commands:
 - `sessionbase` - Main CLI interface
-- `sb` - Shorthand alias for faster typing 
+ - `sb` - Shorthand alias for faster typing 
 - `sessionbase-mcp` - MCP server for AI platforms
 
 ### Authentication
@@ -110,7 +110,6 @@ sessionbase push /path/to/session.json
 Once configured, use natural language in your AI chat:
 
 - "Push this to SessionBase"
-- "List my recent Claude Code sessions"  
 - "Push this session as private with the tags 'API debugging'"
 
 ## Platform Support
