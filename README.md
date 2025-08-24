@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./sessionbase-logo.png" alt="SessionBase" width="400" />
+</p>
+
 # SessionBase CLI
 
 CLI tool for SessionBase - manage and share AI coding sessions from Claude Code, Gemini CLI, and Amazon Q Chat.
