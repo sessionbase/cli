@@ -97,6 +97,19 @@ export class ClaudeCodeProvider extends BaseSessionProvider {
     return `${this.emoji} ${session.title || 'Untitled Session'}`;
   }
 
+  async validateFile(filePath: string): Promise<boolean> {
+    try {
+      if (!filePath.endsWith('.jsonl')) {
+        return false;
+      }
+
+      await this.parseJsonlFile(filePath);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   private async scanProjectDir(projectDir: string, projectPath: string): Promise<SessionInfo[]> {
     const sessions: SessionInfo[] = [];
     

@@ -12,6 +12,7 @@ export abstract class BaseSessionProvider implements SessionProvider {
   abstract findMostRecentSession(targetPath: string, options?: any): Promise<string | null>;
   abstract parseSession(filePath: string): Promise<SessionData>;
   abstract formatSessionDisplay(session: SessionInfo): string;
+  abstract validateFile(filePath: string): Promise<boolean>;
 
   /**
    * Sort sessions by modification time (oldest to newest)

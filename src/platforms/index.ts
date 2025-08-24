@@ -1,4 +1,5 @@
-import { SessionProvider, SupportedPlatform } from './types.js';
+import { readFileSync } from 'node:fs';
+import { SessionProvider, SupportedPlatform, SessionData } from './types.js';
 import { ClaudeCodeProvider } from './claude-code.js';
 import { GeminiCliProvider } from './gemini-cli.js';
 import { QChatProvider } from './q-chat.js';
@@ -70,6 +71,29 @@ export class PlatformRegistry {
     if (platformFlags.length > 1) {
       throw new Error('Can only specify one platform flag at a time');
     }
+  }
+
+  /**
+   * Detect which provider can handle the given file
+   * @param filePath Path to the file to detect
+   * @returns The provider that can handle the file, or null if none match
+   */
+  async detectProvider(filePath: string): Promise<SessionProvider | null> {
+    const providers = this.getAllProviders();
+    
+    for (const provider of providers) {
+      try {
+        const isValid = await provider.validateFile(filePath);
+        if (isValid) {
+          return provider;
+        }
+      } catch (error) {
+        // Continue checking other providers if one fails
+        continue;
+      }
+    }
+    
+    return null;
   }
 }
 

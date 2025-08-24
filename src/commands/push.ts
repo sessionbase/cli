@@ -7,7 +7,7 @@ import { SessionData } from '../platforms/types.js';
 import { sessionBaseClient } from '../api/client.js';
 
 export const pushCommand = new Command('push')
-  .description('Push a chat session file or auto-detect most recent session')
+  .description('Push most recent session by platform in your current directory, or push a session file')
   .argument('[file]', 'Path to the session file (.json or .jsonl) - optional if using platform flags')
   .option('--claude', 'Push most recent Claude Code session from current directory')
   .option('--gemini', 'Push most recent Gemini CLI session from current directory')
@@ -21,14 +21,9 @@ export const pushCommand = new Command('push')
     const spinner = ora('Finding session...').start();
     
     try {
-      // Validate mutually exclusive options
       const platformFlags = [options.claude, options.gemini, options.qchat].filter(Boolean).length;
       
-      if (filePath && platformFlags > 0) {
-        spinner.fail('Cannot specify both a file path and platform flags (--claude, --gemini, --qchat)');
-        process.exit(1);
-      }
-      
+      // Validate that we have either a file path or platform flag
       if (!filePath && platformFlags === 0) {
         spinner.fail('Must specify either a file path or a platform flag (--claude, --gemini, --qchat)');
         process.exit(1);
@@ -39,7 +34,30 @@ export const pushCommand = new Command('push')
       
       let sessionData: SessionData;
       
-      if (platformFlags > 0) {
+      if (filePath) {
+        // File path provided - detect and validate platform
+        spinner.text = 'Detecting session format...';
+        
+        const detectedProvider = await platformRegistry.detectProvider(filePath);
+        if (!detectedProvider) {
+          spinner.fail('Unsupported session file format. Supported formats: Claude Code (.jsonl), Gemini CLI (.json), Q Chat (.json)');
+          process.exit(1);
+        }
+        
+        // If platform flag was provided, validate it matches detected platform
+        if (platformFlags > 0) {
+          const expectedProvider = platformRegistry.getProviderFromOptions(options);
+          if (expectedProvider && detectedProvider.platform !== expectedProvider.platform) {
+            spinner.fail(`Platform mismatch: File appears to be from ${detectedProvider.displayName} but --${expectedProvider.platform.replace('-', '')} flag was specified`);
+            process.exit(1);
+          }
+        }
+        
+        spinner.text = 'Parsing session...';
+        sessionData = await detectedProvider.parseSession(filePath);
+        
+      } else {
+        // Must have platform flag (validated above)
         // Auto-detect session using platform provider
         const provider = platformRegistry.getProviderFromOptions(options);
         
@@ -88,13 +106,6 @@ export const pushCommand = new Command('push')
         sessionData = await provider.parseSession(detectedFile);
         
         filePath = detectedFile;
-        
-      } else {
-        // Direct file upload - detect format and parse
-        spinner.text = 'Parsing session file...';
-        
-        const content = readFileSync(filePath, 'utf-8');
-        sessionData = await parseFileContent(content, filePath);
       }
       
       spinner.text = 'Pushing session...';
@@ -122,63 +133,6 @@ export const pushCommand = new Command('push')
       process.exit(1);
     }
   });
-
-async function parseFileContent(content: string, filePath: string): Promise<SessionData> {
-  const isJsonl = filePath.endsWith('.jsonl');
-  
-  try {
-    if (isJsonl) {
-      // Convert JSONL to JSON by parsing each line
-      const lines = content.trim().split('\n').filter(line => line.trim());
-      const entries = lines.map(line => JSON.parse(line));
-      
-      // Extract Claude session metadata from first entry
-      const firstEntry = entries[0];
-      const claudeSessionId = firstEntry?.sessionId;
-      const claudeCwd = firstEntry?.cwd;
-      
-      // Create a simple JSON structure with the entries
-      return {
-        messages: entries,
-        title: `JSONL Import ${new Date().toISOString().split('T')[0]}`,
-        platform: 'claude-code',
-        sessionId: claudeSessionId,
-        cwd: claudeCwd
-      };
-    } else {
-      // Parse regular JSON
-      const parsed = JSON.parse(content);
-      
-      // Auto-detect format based on structure
-      if (Array.isArray(parsed) && parsed.length > 0 && 
-          parsed.some(msg => 
-            msg.role && ['user', 'model'].includes(msg.role) && 
-            msg.parts && Array.isArray(msg.parts) &&
-            msg.parts.some((part: any) => part.text || part.functionCall || part.functionResponse)
-          )) {
-        // Gemini CLI format
-        return {
-          messages: parsed,
-          title: `Gemini CLI Session ${new Date().toISOString().split('T')[0]}`,
-          platform: 'gemini-cli'
-        };
-      } else if (parsed.conversation_id && parsed.history && Array.isArray(parsed.history)) {
-        // Q Chat format - store raw data directly
-        const sessionData = parsed;
-        sessionData.platform = 'qchat';
-        if (!sessionData.title) {
-          sessionData.title = `Q Chat Session ${new Date().toISOString().split('T')[0]}`;
-        }
-        return sessionData;
-      } else {
-        // Generic JSON format
-        return parsed;
-      }
-    }
-  } catch (error: any) {
-    throw new Error(`Invalid ${isJsonl ? 'JSONL' : 'JSON'} in ${filePath}: ${error.message}`);
-  }
-}
 
 function buildSessionPayload(sessionData: SessionData, options: any) {
   // For Q Chat, store the complete raw conversation data

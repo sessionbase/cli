@@ -64,4 +64,11 @@ export interface SessionProvider {
    * @param session - The session info to format
    */
   formatSessionDisplay(session: SessionInfo): string;
+  
+  /**
+   * Validate if a file belongs to this platform
+   * @param filePath - Path to the session file to validate
+   * @returns true if valid for this platform, false otherwise
+   */
+  validateFile(filePath: string): Promise<boolean>;
 }

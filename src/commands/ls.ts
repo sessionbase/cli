@@ -151,6 +151,7 @@ function displaySingleSession(session: SessionInfo, displayIndex: number, provid
     ? `${provider.displayName} ${provider.emoji} ${session.id}` 
     : `💬 Chat ${session.id}`;
   console.log(chalk.dim(`   ${platformDisplay}`));
+  console.log(chalk.dim(`   📁 ${session.filePath}`));
 
   console.log(''); // Empty line for spacing
 }

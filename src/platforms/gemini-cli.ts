@@ -247,6 +247,25 @@ export class GeminiCliProvider extends BaseSessionProvider {
     return `${this.emoji} ${session.title || 'Gemini Session'}`;
   }
 
+  async validateFile(filePath: string): Promise<boolean> {
+    try {
+      if (!filePath.endsWith('.json')) {
+        return false;
+      }
+
+      const parsed = await this.parseJsonFile(filePath);
+      
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return false;
+      }
+
+      const firstUserMessage = this.findFirstGeminiUserMessage(parsed);
+      return !!firstUserMessage;
+    } catch (error) {
+      return false;
+    }
+  }
+
   private async scanHashDir(geminiDir: string, hashDir: string, knownProjectPath?: string): Promise<SessionInfo[]> {
     const sessions: SessionInfo[] = [];
     

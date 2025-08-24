@@ -124,6 +124,17 @@ export class QChatProvider extends BaseSessionProvider {
     return `${this.emoji} Q Chat Session ${model ? `(${model})` : ''}`;
   }
 
+  async validateFile(filePath: string): Promise<boolean> {
+    try {
+
+      const parsed = await this.parseJsonFile(filePath);
+      
+      return !!(parsed.conversation_id && parsed.history && Array.isArray(parsed.history));
+    } catch (error) {
+      return false;
+    }
+  }
+
   private parseQConversationMetadata(conversationData: any) {
     const history = conversationData.history || [];
     let messageCount = 0;
