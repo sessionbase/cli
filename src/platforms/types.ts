@@ -40,6 +40,11 @@ export interface SessionProvider {
   isAvailable(): Promise<boolean>;
   
   /**
+   * Check if this provider requires user interaction during session finding
+   */
+  requiresUserInteraction(): boolean;
+  
+  /**
    * List all sessions for this platform
    * @param filterPath - Optional path to filter sessions by
    * @param showGlobal - Whether to show sessions from all projects

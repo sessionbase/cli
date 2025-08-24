@@ -13,6 +13,14 @@ export abstract class BaseSessionProvider implements SessionProvider {
   abstract parseSession(filePath: string): Promise<SessionData>;
   abstract formatSessionDisplay(session: SessionInfo): string;
   abstract validateFile(filePath: string): Promise<boolean>;
+  
+  /**
+   * By default, providers don't require user interaction
+   * Override in specific providers that do (like Gemini CLI)
+   */
+  requiresUserInteraction(): boolean {
+    return false;
+  }
 
   /**
    * Sort sessions by modification time (oldest to newest)

@@ -13,6 +13,10 @@ export class GeminiCliProvider extends BaseSessionProvider {
   readonly displayName = 'Gemini CLI';
   readonly emoji = '🔷';
 
+  requiresUserInteraction(): boolean {
+    return true;
+  }
+
   private generateProjectHash(projectPath: string): string {
     return createHash('sha256').update(projectPath).digest('hex');
   }
