@@ -5,7 +5,8 @@ import {
   DeviceFlowResponse,
   DeviceTokenResponse,
   SessionUploadResponse,
-  UserInfoResponse
+  UserInfoResponse,
+  SessionDeleteResponse
 } from './types.js';
 
 /**
@@ -59,6 +60,17 @@ export class SessionBaseClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sessionData),
+    });
+
+    return await response.json();
+  }
+
+  /**
+   * Delete a session from SessionBase
+   */
+  async deleteSession(sessionId: string): Promise<SessionDeleteResponse> {
+    const response = await this.fetch(`/sessions/${sessionId}`, {
+      method: 'DELETE',
     });
 
     return await response.json();

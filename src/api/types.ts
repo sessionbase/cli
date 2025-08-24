@@ -37,3 +37,8 @@ export interface UserInfoResponse {
   };
   message?: string;
 }
+
+export interface SessionDeleteResponse {
+  message: string;
+  sessionId: string;
+}
