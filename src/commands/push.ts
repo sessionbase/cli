@@ -181,8 +181,9 @@ async function parseFileContent(content: string, filePath: string): Promise<Sess
 }
 
 function buildSessionPayload(sessionData: SessionData, options: any) {
+  console.log('DEBUG: sessionData.platform =', sessionData.platform);
   // For Q Chat, store the complete raw conversation data
-  if (sessionData.platform === 'qchat') {
+  if (sessionData.platform === 'q-chat') {
     return {
       ...sessionData, // Include all raw Q Chat data
       isPrivate: options.private || false,
@@ -203,7 +204,7 @@ function buildSessionPayload(sessionData: SessionData, options: any) {
       tokenCount: sessionData.tokenCount || 0,
       messageCount: sessionData.messages?.length || 0,
       modelName: sessionData.modelName || 'unknown',
-      platform: sessionData.platform || 'cli',
+      platform: sessionData.platform,
       ...(sessionData.sessionId && { sessionId: sessionData.sessionId }),
       ...(sessionData.cwd && { cwd: sessionData.cwd })
     };

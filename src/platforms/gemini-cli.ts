@@ -5,10 +5,10 @@ import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import chalk from 'chalk';
 import { getGeminiCliPath } from '../utils/paths.js';
-import { SessionUtils } from '../utils/session-utils.js';
-import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './types.js';
+import { BaseSessionProvider } from './base-session-provider.js';
+import { SessionInfo, SessionData, SupportedPlatform } from './types.js';
 
-export class GeminiCliProvider implements SessionProvider {
+export class GeminiCliProvider extends BaseSessionProvider {
   readonly platform: SupportedPlatform = 'gemini-cli';
   readonly displayName = 'Gemini CLI';
   readonly emoji = '🔷';
@@ -16,8 +16,6 @@ export class GeminiCliProvider implements SessionProvider {
   private generateProjectHash(projectPath: string): string {
     return createHash('sha256').update(projectPath).digest('hex');
   }
-
-
 
   async isAvailable(): Promise<boolean> {
     return existsSync(getGeminiCliPath());
@@ -33,7 +31,7 @@ export class GeminiCliProvider implements SessionProvider {
       sessions.push(...await this.scanSingleProject(geminiPath, filterPath));
     }
 
-    return SessionUtils.sortSessionsByModified(sessions);
+    return this.sortSessionsByModified(sessions);
   }
 
   private async scanAllHashDirs(geminiPath: string): Promise<SessionInfo[]> {
@@ -83,34 +81,10 @@ export class GeminiCliProvider implements SessionProvider {
   }
 
   private async findMostRecentCheckpoint(geminiDir: string): Promise<string | null> {
-    const files = await readdir(geminiDir);
-    const checkpoints = files.filter(f => 
-      (f.startsWith('checkpoint-') && f.endsWith('.json')) || 
-      f === 'checkpoint.json'
+    return this.findMostRecentFile(geminiDir, (filename) => 
+      (filename.startsWith('checkpoint-') && filename.endsWith('.json')) || 
+      filename === 'checkpoint.json'
     );
-
-    if (checkpoints.length === 0) {
-      return null;
-    }
-    
-    let mostRecentFile = null;
-    let mostRecentTime = 0;
-    
-    for (const checkpoint of checkpoints) {
-      const filePath = join(geminiDir, checkpoint);
-      
-      try {
-        const stats = await stat(filePath);
-        if (stats.mtime.getTime() > mostRecentTime) {
-          mostRecentTime = stats.mtime.getTime();
-          mostRecentFile = filePath;
-        }
-      } catch (error) {
-        continue;
-      }
-    }
-
-    return mostRecentFile;
   }
 
   /*
@@ -184,7 +158,7 @@ export class GeminiCliProvider implements SessionProvider {
   }
 
   async parseSession(filePath: string): Promise<SessionData> {
-    const data = await SessionUtils.parseJsonFile(filePath);
+    const data = await this.parseJsonFile(filePath);
     
     if (!Array.isArray(data)) {
       throw new Error(`Invalid Gemini CLI session format in file ${filePath}`);
@@ -194,7 +168,7 @@ export class GeminiCliProvider implements SessionProvider {
     
     return {
       messages: actualMessages,
-      title: `Gemini CLI Session ${new Date().toISOString().split('T')[0]}`,
+      title: this.generateDefaultTitle(),
       platform: 'gemini-cli',
       messageCount: actualMessages.length
     };
@@ -251,7 +225,7 @@ export class GeminiCliProvider implements SessionProvider {
         const text = msg.parts[0].text;
         // Double-check this isn't a context message we missed
         if (!this.isGeminiContextMessage(msg)) {
-          return SessionUtils.generatePreview(text);
+          return this.generatePreview(text);
         }
       }
     }
@@ -314,7 +288,7 @@ export class GeminiCliProvider implements SessionProvider {
   }
 
   private async parseGeminiSessionMetadata(filePath: string) {
-    const data = await SessionUtils.parseJsonFile(filePath);
+    const data = await this.parseJsonFile(filePath);
     const actualMessages = this.filterActualMessages(data);
     const firstMessagePreview = this.findFirstGeminiUserMessage(data);
     
@@ -325,7 +299,7 @@ export class GeminiCliProvider implements SessionProvider {
   }
 
   private async extractProjectPathFromFile(filePath: string): Promise<string | null> {
-    const data = await SessionUtils.parseJsonFile(filePath);
+    const data = await this.parseJsonFile(filePath);
     return this.extractProjectPath(data);
   }
 

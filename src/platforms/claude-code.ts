@@ -2,10 +2,10 @@ import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { getClaudeCodePath } from '../utils/paths.js';
-import { SessionUtils } from '../utils/session-utils.js';
-import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './types.js';
+import { BaseSessionProvider } from './base-session-provider.js';
+import { SessionInfo, SessionData, SupportedPlatform } from './types.js';
 
-export class ClaudeCodeProvider implements SessionProvider {
+export class ClaudeCodeProvider extends BaseSessionProvider {
   readonly platform: SupportedPlatform = 'claude-code';
   readonly displayName = 'Claude Code';
   readonly emoji = '🟠';
@@ -32,7 +32,7 @@ export class ClaudeCodeProvider implements SessionProvider {
       sessions.push(...await this.scanSingleProject(claudePath, filterPath));
     }
 
-    return SessionUtils.sortSessionsByModified(sessions);
+    return this.sortSessionsByModified(sessions);
   }
 
   private async scanAllProjects(claudePath: string): Promise<SessionInfo[]> {
@@ -69,42 +69,16 @@ export class ClaudeCodeProvider implements SessionProvider {
     const encodedPath = this.encodeProjectPath(targetPath);
     const projectDir = join(getClaudeCodePath(), encodedPath);
     
-    try {
-      const files = await readdir(projectDir);
-      let mostRecentFile = null;
-      let mostRecentTime = 0;
-      
-      for (const file of files) {
-        if (!file.endsWith('.jsonl')) continue;
-        
-        const filePath = join(projectDir, file);
-        
-        try {
-          const stats = await stat(filePath);
-          if (stats.mtime.getTime() > mostRecentTime) {
-            mostRecentTime = stats.mtime.getTime();
-            mostRecentFile = filePath;
-          }
-        } catch (error) {
-          // Skip files we can't read
-          continue;
-        }
-      }
-      
-      return mostRecentFile;
-    } catch (error) {
-      // Directory doesn't exist or can't be read
-      return null;
-    }
+    return this.findMostRecentFile(projectDir, (filename) => filename.endsWith('.jsonl'));
   }
 
   async parseSession(filePath: string): Promise<SessionData> {
-    const entries = await SessionUtils.parseJsonlFile(filePath);
+    const entries = await this.parseJsonlFile(filePath);
     const metadata = this.extractClaudeMetadata(entries);
 
     return {
       messages: entries,
-      title: `Claude Session ${new Date().toISOString().split('T')[0]}`,
+      title: this.generateDefaultTitle(),
       platform: 'claude-code',
       messageCount: entries.length,
       ...metadata
@@ -146,7 +120,7 @@ export class ClaudeCodeProvider implements SessionProvider {
             firstMessagePreview: sessionData.firstMessagePreview,
             platform: 'claude-code',
             messages: [], // We don't load full messages for listing
-            title: `Claude Session ${stats.mtime.toISOString().split('T')[0]}`
+            title: this.generateDefaultTitle(stats.mtime)
           });
         } catch (error) {
           // Skip sessions we can't parse
@@ -161,7 +135,7 @@ export class ClaudeCodeProvider implements SessionProvider {
   }
 
   private async parseClaudeSessionMetadata(filePath: string) {
-    const entries = await SessionUtils.parseJsonlFile(filePath);
+    const entries = await this.parseJsonlFile(filePath);
     const firstMessagePreview = this.extractFirstMessagePreview(entries);
     
     return {
@@ -175,7 +149,7 @@ export class ClaudeCodeProvider implements SessionProvider {
       if (message.message?.role === 'user' && message.message?.content) {
         const text = this.extractClaudeMessageText(message);
         if (text) {
-          return SessionUtils.generatePreview(text);
+          return this.generatePreview(text);
         }
       }
     }

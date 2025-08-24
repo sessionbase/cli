@@ -3,10 +3,10 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sqlite3 from 'sqlite3';
 import { getAmazonQPath } from '../utils/paths.js';
-import { SessionUtils } from '../utils/session-utils.js';
-import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './types.js';
+import { BaseSessionProvider } from './base-session-provider.js';
+import { SessionInfo, SessionData, SupportedPlatform } from './types.js';
 
-export class QChatProvider implements SessionProvider {
+export class QChatProvider extends BaseSessionProvider {
   readonly platform: SupportedPlatform = 'qchat';
   readonly displayName = 'Amazon Q Chat';
   readonly emoji = '🤖';
@@ -24,7 +24,7 @@ export class QChatProvider implements SessionProvider {
       sessions.push(...await this.scanSingleProject(filterPath));
     }
 
-    return SessionUtils.sortSessionsByModified(sessions);
+    return this.sortSessionsByModified(sessions);
   }
 
   private async scanAllConversations(): Promise<SessionInfo[]> {
@@ -70,7 +70,7 @@ export class QChatProvider implements SessionProvider {
       lastModified: new Date(sessionData.lastActivity),
       messageCount: sessionData.messageCount,
       firstMessagePreview: sessionData.firstMessagePreview,
-      platform: 'qchat',
+      platform: 'q-chat',
       messages: [], // We don't load full messages for listing
       title: 'Q Chat Session'
     };
@@ -100,20 +100,19 @@ export class QChatProvider implements SessionProvider {
   }
 
   async parseSession(filePath: string): Promise<SessionData> {
-    const data = await SessionUtils.parseJsonFile(filePath);
+    const data = await this.parseJsonFile(filePath);
     
     return {
-      ...data, // Include all raw Q Chat data
-      platform: 'qchat',
+      ...data,
+      platform: 'q-chat',
       title: this.generateSessionTitle(data),
       messageCount: this.calculateMessageCount(data),
-      modelName: data.model || 'unknown',
-      messages: this.convertQChatToMessages(data)
+      modelName: data.model || 'unknown'
     };
   }
 
   private generateSessionTitle(data: any): string {
-    return data.title || `Q Chat Session ${new Date().toISOString().split('T')[0]}`;
+    return data.title || this.generateDefaultTitle();
   }
 
   private calculateMessageCount(data: any): number {
@@ -207,7 +206,7 @@ export class QChatProvider implements SessionProvider {
       if (!firstMessagePreview) {
         const text = this.extractQChatPromptText(userMessage);
         if (text) {
-          firstMessagePreview = SessionUtils.generatePreview(text);
+          firstMessagePreview = this.generatePreview(text);
         }
       }
     }
@@ -234,136 +233,5 @@ export class QChatProvider implements SessionProvider {
 
   private extractQChatPromptText(userMessage: any): string | null {
     return userMessage?.content?.Prompt?.prompt || null;
-  }
-
-  private extractSessionId(conversationData: any): string {
-    return conversationData.conversation_id || `qchat-${Date.now()}`;
-  }
-
-  private extractTurnMessages(turn: any): { userMessage: any | null; assistantMessage: any | null } {
-    // Handle both old array format and new object format
-    if (Array.isArray(turn) && turn.length >= 2) {
-      // Old format: [userMessage, assistantMessage]
-      return { userMessage: turn[0], assistantMessage: turn[1] };
-    } else if (turn && typeof turn === 'object' && turn.user && turn.assistant) {
-      // New format: {user: userMessage, assistant: assistantMessage}
-      return { userMessage: turn.user, assistantMessage: turn.assistant };
-    }
-    
-    return { userMessage: null, assistantMessage: null };
-  }
-
-  private convertQChatToMessages(conversationData: any): any[] {
-    const messages = [];
-    const history = conversationData.history || [];
-    const sessionId = this.extractSessionId(conversationData);
-    
-    for (let i = 0; i < history.length; i++) {
-      const turn = history[i];
-      const { userMessage, assistantMessage } = this.extractTurnMessages(turn);
-      
-      if (!userMessage || !assistantMessage) {
-        continue;
-      }
-      
-      // Add user message for prompts
-      if (userMessage?.content?.Prompt?.prompt) {
-        messages.push({
-          parentUuid: null,
-          isSidechain: false,
-          userType: "external",
-          cwd: userMessage.env_context?.env_state?.current_working_directory || process.cwd(),
-          sessionId: sessionId,
-          version: "1.0.60",
-          gitBranch: "",
-          type: "user",
-          message: {
-            role: "user",
-            content: userMessage.content.Prompt.prompt
-          },
-          uuid: `user-${sessionId}-${i}`,
-          timestamp: userMessage.timestamp || Date.now()
-        });
-      }
-      
-      // Add tool results as separate tool messages
-      if (userMessage?.content?.ToolUseResults?.tool_use_results) {
-        const toolResults = userMessage.content.ToolUseResults.tool_use_results;
-        
-        messages.push({
-          parentUuid: null,
-          isSidechain: false,
-          userType: "external",
-          cwd: userMessage.env_context?.env_state?.current_working_directory || process.cwd(),
-          sessionId: sessionId,
-          version: "1.0.60",
-          gitBranch: "",
-          type: "tool",
-          message: {
-            role: "tool",
-            content: "Tool execution results",
-            toolResults: toolResults.map((result: any) => ({
-              tool_use_id: result.tool_use_id,
-              content: result.content,
-              status: result.status
-            }))
-          },
-          uuid: `tool-${sessionId}-${i}`,
-          timestamp: userMessage.timestamp || Date.now()
-        });
-      }
-      
-      // Add assistant messages
-      let assistantContent = null;
-      let toolCalls = null;
-      
-      if (assistantMessage?.Response?.content) {
-        assistantContent = assistantMessage.Response.content;
-      } else if (assistantMessage?.ToolUse?.content) {
-        assistantContent = assistantMessage.ToolUse.content;
-        
-        // Add tool calls if they exist
-        if (assistantMessage.ToolUse.tool_uses && assistantMessage.ToolUse.tool_uses.length > 0) {
-          toolCalls = assistantMessage.ToolUse.tool_uses.map((tool: any) => ({
-            id: tool.id,
-            name: tool.name,
-            input: tool.args,
-            timestamp: tool.timestamp || Date.now(),
-            metadata: {
-              orig_name: tool.orig_name || tool.name,
-              orig_args: tool.orig_args || tool.args
-            }
-          }));
-        }
-      }
-      
-      if (assistantContent) {
-        const assistantMsg: any = {
-          parentUuid: null,
-          isSidechain: false,
-          userType: "external",
-          cwd: userMessage?.env_context?.env_state?.current_working_directory || process.cwd(),
-          sessionId: sessionId,
-          version: "1.0.60",
-          gitBranch: "",
-          type: "assistant",
-          message: {
-            role: "assistant",
-            content: assistantContent
-          },
-          uuid: `assistant-${sessionId}-${i}`,
-          timestamp: assistantMessage.timestamp || Date.now()
-        };
-        
-        // Add toolCalls if they exist
-        if (toolCalls) {
-          assistantMsg.message.toolCalls = toolCalls;
-        }
-        
-        messages.push(assistantMsg);
-      }
-    }
-    
-    return messages;
   }
 }
