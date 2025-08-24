@@ -14,6 +14,7 @@ npm install -g @sessionbase/cli
 
 This provides two commands:
 - `sessionbase` - Main CLI interface
+- `sb` - Shorthand alias for faster typing 
 - `sessionbase-mcp` - MCP server for AI platforms
 
 ### Authentication
@@ -33,6 +34,8 @@ sessionbase whoami
 ```
 
 ### Push Your First Session
+
+Note that all sessions are public and discoverable by default, unless you supply the `--private` flag. Private sessions are only visible to the owner of the session.
 
 Push your most recent AI chat session:
 
@@ -93,7 +96,7 @@ Add to `~/.aws/amazonq/mcp.json`:
 # List all sessions
 sessionbase ls --global
 
-# Push with metadata
+# Push private session with metadata
 sessionbase push --claude --title "Debug Session" --tags "debugging,api" --private
 
 # Push specific file
