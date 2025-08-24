@@ -1,7 +1,8 @@
-import { readdir, stat, readFile } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { getClaudeCodePath } from '../utils/paths.js';
+import { SessionUtils } from '../utils/session-utils.js';
 import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './types.js';
 
 export class ClaudeCodeProvider implements SessionProvider {
@@ -17,11 +18,6 @@ export class ClaudeCodeProvider implements SessionProvider {
     return encodedPath.replace(/-/g, '/');
   }
 
-  private sortSessionsByModified(sessions: SessionInfo[]): SessionInfo[] {
-    return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
-  }
-
-
   async isAvailable(): Promise<boolean> {
     return existsSync(getClaudeCodePath());
   }
@@ -36,7 +32,7 @@ export class ClaudeCodeProvider implements SessionProvider {
       sessions.push(...await this.scanSingleProject(claudePath, filterPath));
     }
 
-    return this.sortSessionsByModified(sessions);
+    return SessionUtils.sortSessionsByModified(sessions);
   }
 
   private async scanAllProjects(claudePath: string): Promise<SessionInfo[]> {
@@ -103,7 +99,7 @@ export class ClaudeCodeProvider implements SessionProvider {
   }
 
   async parseSession(filePath: string): Promise<SessionData> {
-    const entries = await this.parseJsonlFile(filePath);
+    const entries = await SessionUtils.parseJsonlFile(filePath);
     const metadata = this.extractClaudeMetadata(entries);
 
     return {
@@ -113,23 +109,6 @@ export class ClaudeCodeProvider implements SessionProvider {
       messageCount: entries.length,
       ...metadata
     };
-  }
-
-  private async parseJsonlFile(filePath: string): Promise<any[]> {
-    const content = await readFile(filePath, 'utf-8');
-    const lines = content.trim().split('\n').filter(line => line.trim());
-    
-    if (lines.length === 0) {
-      throw new Error(`Empty session file: ${filePath}`);
-    }
-
-    return lines.map((line, index) => {
-      try {
-        return JSON.parse(line);
-      } catch (error) {
-        throw new Error(`Invalid JSON on line ${index + 1} in file ${filePath}: ${error}`);
-      }
-    });
   }
 
   private extractClaudeMetadata(entries: any[]): { sessionId?: string; cwd?: string } {
@@ -182,7 +161,7 @@ export class ClaudeCodeProvider implements SessionProvider {
   }
 
   private async parseClaudeSessionMetadata(filePath: string) {
-    const entries = await this.parseJsonlFile(filePath);
+    const entries = await SessionUtils.parseJsonlFile(filePath);
     const firstMessagePreview = this.extractFirstMessagePreview(entries);
     
     return {
@@ -196,7 +175,7 @@ export class ClaudeCodeProvider implements SessionProvider {
       if (message.message?.role === 'user' && message.message?.content) {
         const text = this.extractClaudeMessageText(message);
         if (text) {
-          return this.generatePreview(text);
+          return SessionUtils.generatePreview(text);
         }
       }
     }
@@ -216,18 +195,5 @@ export class ClaudeCodeProvider implements SessionProvider {
     }
     
     return '';
-  }
-
-  private generatePreview(text: string): string {
-    const cleanedText = text
-      .replace(/\n/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (cleanedText.length <= 100) {
-      return cleanedText;
-    }
-
-    return cleanedText.substring(0, 100) + '...';
   }
 }

@@ -1,10 +1,11 @@
-import { readdir, stat, readFile } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import chalk from 'chalk';
 import { getGeminiCliPath } from '../utils/paths.js';
+import { SessionUtils } from '../utils/session-utils.js';
 import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './types.js';
 
 export class GeminiCliProvider implements SessionProvider {
@@ -16,9 +17,6 @@ export class GeminiCliProvider implements SessionProvider {
     return createHash('sha256').update(projectPath).digest('hex');
   }
 
-  private sortSessionsByModified(sessions: SessionInfo[]): SessionInfo[] {
-    return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
-  }
 
 
   async isAvailable(): Promise<boolean> {
@@ -35,7 +33,7 @@ export class GeminiCliProvider implements SessionProvider {
       sessions.push(...await this.scanSingleProject(geminiPath, filterPath));
     }
 
-    return this.sortSessionsByModified(sessions);
+    return SessionUtils.sortSessionsByModified(sessions);
   }
 
   private async scanAllHashDirs(geminiPath: string): Promise<SessionInfo[]> {
@@ -186,7 +184,12 @@ export class GeminiCliProvider implements SessionProvider {
   }
 
   async parseSession(filePath: string): Promise<SessionData> {
-    const data = await this.parseJsonFile(filePath);
+    const data = await SessionUtils.parseJsonFile(filePath);
+    
+    if (!Array.isArray(data)) {
+      throw new Error(`Invalid Gemini CLI session format in file ${filePath}`);
+    }
+    
     const actualMessages = this.filterActualMessages(data);
     
     return {
@@ -195,17 +198,6 @@ export class GeminiCliProvider implements SessionProvider {
       platform: 'gemini-cli',
       messageCount: actualMessages.length
     };
-  }
-
-  private async parseJsonFile(filePath: string): Promise<any> {
-    const content = await readFile(filePath, 'utf-8');
-    const data = JSON.parse(content);
-    
-    if (!Array.isArray(data)) {
-      throw new Error(`Invalid Gemini CLI session format in file ${filePath}`);
-    }
-    
-    return data;
   }
 
   private filterActualMessages(messages: any[]): any[] {
@@ -236,23 +228,6 @@ export class GeminiCliProvider implements SessionProvider {
     return createHash('sha256').update(input).digest('hex').substring(0, 16);
   }
 
-  private generatePreview(text: string): string {
-    const cleanedText = text
-      .replace(/\n/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    if (cleanedText.length <= 100) {
-      return cleanedText;
-    }
-    
-    return cleanedText.substring(0, 100) + '...';
-  }
-
-  private extractGeminiMessageText(message: any): string {
-    return message.parts?.[0]?.text || '';
-  }
-
   /*
   * Gemini starts each session with a context message including the date, OS, 
   * working directory, and a tree of your current directory. We are assuming that 
@@ -276,7 +251,7 @@ export class GeminiCliProvider implements SessionProvider {
         const text = msg.parts[0].text;
         // Double-check this isn't a context message we missed
         if (!this.isGeminiContextMessage(msg)) {
-          return this.generatePreview(text);
+          return SessionUtils.generatePreview(text);
         }
       }
     }
@@ -339,7 +314,7 @@ export class GeminiCliProvider implements SessionProvider {
   }
 
   private async parseGeminiSessionMetadata(filePath: string) {
-    const data = await this.parseJsonFile(filePath);
+    const data = await SessionUtils.parseJsonFile(filePath);
     const actualMessages = this.filterActualMessages(data);
     const firstMessagePreview = this.findFirstGeminiUserMessage(data);
     
@@ -350,7 +325,7 @@ export class GeminiCliProvider implements SessionProvider {
   }
 
   private async extractProjectPathFromFile(filePath: string): Promise<string | null> {
-    const data = await this.parseJsonFile(filePath);
+    const data = await SessionUtils.parseJsonFile(filePath);
     return this.extractProjectPath(data);
   }
 

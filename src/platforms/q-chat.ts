@@ -3,17 +3,13 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sqlite3 from 'sqlite3';
 import { getAmazonQPath } from '../utils/paths.js';
+import { SessionUtils } from '../utils/session-utils.js';
 import { SessionProvider, SessionInfo, SessionData, SupportedPlatform } from './types.js';
 
 export class QChatProvider implements SessionProvider {
   readonly platform: SupportedPlatform = 'qchat';
   readonly displayName = 'Amazon Q Chat';
   readonly emoji = '🤖';
-
-  private sortSessionsByModified(sessions: SessionInfo[]): SessionInfo[] {
-    return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
-  }
-
 
   async isAvailable(): Promise<boolean> {
     return existsSync(getAmazonQPath());
@@ -28,7 +24,7 @@ export class QChatProvider implements SessionProvider {
       sessions.push(...await this.scanSingleProject(filterPath));
     }
 
-    return this.sortSessionsByModified(sessions);
+    return SessionUtils.sortSessionsByModified(sessions);
   }
 
   private async scanAllConversations(): Promise<SessionInfo[]> {
@@ -104,7 +100,7 @@ export class QChatProvider implements SessionProvider {
   }
 
   async parseSession(filePath: string): Promise<SessionData> {
-    const data = await this.parseJsonFile(filePath);
+    const data = await SessionUtils.parseJsonFile(filePath);
     
     return {
       ...data, // Include all raw Q Chat data
@@ -114,11 +110,6 @@ export class QChatProvider implements SessionProvider {
       modelName: data.model || 'unknown',
       messages: this.convertQChatToMessages(data)
     };
-  }
-
-  private async parseJsonFile(filePath: string): Promise<any> {
-    const content = await readFile(filePath, 'utf-8');
-    return JSON.parse(content);
   }
 
   private generateSessionTitle(data: any): string {
@@ -216,7 +207,7 @@ export class QChatProvider implements SessionProvider {
       if (!firstMessagePreview) {
         const text = this.extractQChatPromptText(userMessage);
         if (text) {
-          firstMessagePreview = this.generatePreview(text);
+          firstMessagePreview = SessionUtils.generatePreview(text);
         }
       }
     }
@@ -243,19 +234,6 @@ export class QChatProvider implements SessionProvider {
 
   private extractQChatPromptText(userMessage: any): string | null {
     return userMessage?.content?.Prompt?.prompt || null;
-  }
-
-  private generatePreview(text: string): string {
-    const cleanedText = text
-      .replace(/\n/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    if (cleanedText.length <= 100) {
-      return cleanedText;
-    }
-    
-    return cleanedText.substring(0, 100) + '...';
   }
 
   private extractSessionId(conversationData: any): string {
