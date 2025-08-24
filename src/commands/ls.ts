@@ -13,28 +13,13 @@ export const lsCommand = new Command('ls')
   .option('--global', 'Include sessions from all projects')
   .action(async (options) => {
     try {
-      // Validate mutually exclusive options
-      if (options.path && options.global) {
-        console.error(chalk.red('Error: Cannot specify both --path and --global options'));
-        process.exit(1);
-      }
-
-      // Validate platform options
-      platformRegistry.validatePlatformOptions(options);
-
-      // Validate filter path if provided
-      if (options.path) {
-        await validateFilterPath(options.path);
-      }
-
-      // Get specific provider if platform flag is used
+      await validateOptions(options);
+      
       const specificProvider = platformRegistry.getProviderFromOptions(options);
-
+      
       if (specificProvider) {
-        // Show specific platform
         await listSinglePlatform(specificProvider, options.path, options.global);
       } else {
-        // Show all available platforms
         await listAllPlatforms(options.path, options.global);
       }
     } catch (error: any) {
@@ -42,6 +27,39 @@ export const lsCommand = new Command('ls')
       process.exit(1);
     }
   });
+
+// === Validation Functions ===
+
+async function validateOptions(options: any): Promise<void> {
+  // Validate mutually exclusive options
+  if (options.path && options.global) {
+    throw new Error('Cannot specify both --path and --global options');
+  }
+
+  // Validate platform options
+  platformRegistry.validatePlatformOptions(options);
+
+  // Validate filter path if provided
+  if (options.path) {
+    await validateFilterPath(options.path);
+  }
+}
+
+async function validateFilterPath(filterPath: string): Promise<void> {
+  try {
+    const stats = await stat(filterPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`Path '${filterPath}' is not a directory`);
+    }
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`Directory '${filterPath}' does not exist`);
+    }
+    throw error;
+  }
+}
+
+// === Listing Functions ===
 
 async function listAllPlatforms(filterPath?: string, showGlobal?: boolean) {
   const scope = showGlobal ? 'all projects' : (filterPath || process.cwd());
@@ -110,6 +128,8 @@ async function listSinglePlatform(provider: any, filterPath?: string, showGlobal
   }
 }
 
+// === Display Functions ===
+
 function displaySessions(sessions: SessionInfo[], showGlobal?: boolean, provider?: any) {
   if (showGlobal) {
     // Group by project for better readability
@@ -156,19 +176,7 @@ function displaySingleSession(session: SessionInfo, displayIndex: number, provid
   console.log(''); // Empty line for spacing
 }
 
-async function validateFilterPath(filterPath: string): Promise<void> {
-  try {
-    const stats = await stat(filterPath);
-    if (!stats.isDirectory()) {
-      throw new Error(`Path '${filterPath}' is not a directory`);
-    }
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      throw new Error(`Directory '${filterPath}' does not exist`);
-    }
-    throw error;
-  }
-}
+// === Utility Functions ===
 
 function getRelativeTime(date: Date): string {
   const now = new Date();
