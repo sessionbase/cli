@@ -4,6 +4,8 @@ CLI tool for SessionBase - manage and share AI chat sessions from Claude Code, G
 
 ## Quick Start
 
+For more detailed documentation, see [docs.sessionbase.ai](https://docs.sessionbase.ai).
+
 ### Installation
 
 Install the SessionBase CLI globally:
