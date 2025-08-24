@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { stat } from 'node:fs/promises';
 import { platformRegistry } from '../platforms/index.js';
 import { SessionInfo } from '../platforms/types.js';
 
@@ -20,6 +21,11 @@ export const lsCommand = new Command('ls')
 
       // Validate platform options
       platformRegistry.validatePlatformOptions(options);
+
+      // Validate filter path if provided
+      if (options.path) {
+        await validateFilterPath(options.path);
+      }
 
       // Get specific provider if platform flag is used
       const specificProvider = platformRegistry.getProviderFromOptions(options);
@@ -147,6 +153,20 @@ function displaySingleSession(session: SessionInfo, displayIndex: number, provid
   console.log(chalk.dim(`   ${platformDisplay}`));
 
   console.log(''); // Empty line for spacing
+}
+
+async function validateFilterPath(filterPath: string): Promise<void> {
+  try {
+    const stats = await stat(filterPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`Path '${filterPath}' is not a directory`);
+    }
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`Directory '${filterPath}' does not exist`);
+    }
+    throw error;
+  }
 }
 
 function getRelativeTime(date: Date): string {

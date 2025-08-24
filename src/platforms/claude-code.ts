@@ -21,30 +21,12 @@ export class ClaudeCodeProvider implements SessionProvider {
     return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
   }
 
-  // this should move up to the ls command
-  private async validateFilterPath(filterPath?: string): Promise<void> {
-    if (!filterPath) return;
-    
-    try {
-      const stats = await stat(filterPath);
-      if (!stats.isDirectory()) {
-        throw new Error(`Path '${filterPath}' is not a directory`);
-      }
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        throw new Error(`Directory '${filterPath}' does not exist`);
-      }
-      throw error;
-    }
-  }
 
   async isAvailable(): Promise<boolean> {
     return existsSync(getClaudeCodePath());
   }
 
   async listSessions(filterPath?: string, showGlobal?: boolean): Promise<SessionInfo[]> {
-    await this.validateFilterPath(filterPath);
-    
     const claudePath = getClaudeCodePath();
     const sessions: SessionInfo[] = [];
 

@@ -20,29 +20,12 @@ export class GeminiCliProvider implements SessionProvider {
     return sessions.sort((a, b) => a.lastModified.getTime() - b.lastModified.getTime());
   }
 
-  private async validateFilterPath(filterPath?: string): Promise<void> {
-    if (!filterPath) return;
-    
-    try {
-      const stats = await stat(filterPath);
-      if (!stats.isDirectory()) {
-        throw new Error(`Path '${filterPath}' is not a directory`);
-      }
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        throw new Error(`Directory '${filterPath}' does not exist`);
-      }
-      throw error;
-    }
-  }
 
   async isAvailable(): Promise<boolean> {
     return existsSync(getGeminiCliPath());
   }
 
   async listSessions(filterPath?: string, showGlobal?: boolean): Promise<SessionInfo[]> {
-    await this.validateFilterPath(filterPath);
-    
     const geminiPath = getGeminiCliPath();
     const sessions: SessionInfo[] = [];
 
