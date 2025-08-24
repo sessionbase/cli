@@ -1,8 +1,8 @@
 import { writeFile, stat, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import sqlite3 from 'sqlite3';
 import { getAmazonQPath } from '../utils/paths.js';
+import { getConversation, getAllConversations } from '../utils/qchat-db.js';
 import { BaseSessionProvider } from './base-session-provider.js';
 import { SessionInfo, SessionData, SupportedPlatform } from './types.js';
 
@@ -29,7 +29,7 @@ export class QChatProvider extends BaseSessionProvider {
 
   private async scanAllConversations(): Promise<SessionInfo[]> {
     const sessions: SessionInfo[] = [];
-    const conversations = await this.readQDatabase();
+    const conversations = await getAllConversations();
     
     for (const conversation of conversations) {
       try {
@@ -46,7 +46,7 @@ export class QChatProvider extends BaseSessionProvider {
 
   private async scanSingleProject(filterPath?: string): Promise<SessionInfo[]> {
     const targetPath = filterPath ? resolve(filterPath) : process.cwd();
-    const conversation = await this.readQDatabase(targetPath);
+    const conversation = await getConversation(targetPath);
     
     if (conversation) {
       try {
@@ -77,7 +77,7 @@ export class QChatProvider extends BaseSessionProvider {
   }
 
   async findMostRecentSession(targetPath: string): Promise<string | null> {
-    const conversation = await this.readQDatabase(targetPath);
+    const conversation = await getConversation(targetPath);
     
     if (!conversation) {
       return null;
@@ -122,70 +122,6 @@ export class QChatProvider extends BaseSessionProvider {
   formatSessionDisplay(session: SessionInfo): string {
     const model = session.modelName?.replace('CLAUDE_SONNET_4_20250514_V1_0', 'Claude Sonnet 4') || '';
     return `${this.emoji} Q Chat Session ${model ? `(${model})` : ''}`;
-  }
-
-  private readQDatabase(filterPath?: string): Promise<any[] | any> {
-    return new Promise((resolve, reject) => {
-      const db = new sqlite3.Database(getAmazonQPath(), sqlite3.OPEN_READONLY);
-      
-      if (filterPath) {
-        // Query for specific path
-        db.get('SELECT key, value FROM conversations WHERE key = ?', [filterPath], (err, row: any) => {
-          if (err) {
-            db.close();
-            reject(err);
-            return;
-          }
-          
-          if (!row) {
-            db.close();
-            resolve(null);
-            return;
-          }
-          
-          try {
-            const conversationData = JSON.parse(row.value);
-            db.close();
-            resolve({
-              directoryPath: row.key,
-              conversationId: conversationData.conversation_id,
-              conversationData
-            });
-          } catch (error: any) {
-            db.close();
-            reject(new Error(`Failed to parse conversation data: ${error.message}`));
-          }
-        });
-      } else {
-        // Query for all conversations
-        db.all('SELECT key, value FROM conversations', [], (err, rows: any[]) => {
-          if (err) {
-            db.close();
-            reject(err);
-            return;
-          }
-          
-          const conversations = [];
-          
-          for (const row of rows) {
-            try {
-              const conversationData = JSON.parse(row.value);
-              conversations.push({
-                directoryPath: row.key,
-                conversationId: conversationData.conversation_id,
-                conversationData
-              });
-            } catch (error) {
-              // Skip conversations we can't parse
-              continue;
-            }
-          }
-          
-          db.close();
-          resolve(conversations);
-        });
-      }
-    });
   }
 
   private parseQConversationMetadata(conversationData: any) {

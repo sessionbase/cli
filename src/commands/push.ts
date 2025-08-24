@@ -181,7 +181,6 @@ async function parseFileContent(content: string, filePath: string): Promise<Sess
 }
 
 function buildSessionPayload(sessionData: SessionData, options: any) {
-  console.log('DEBUG: sessionData.platform =', sessionData.platform);
   // For Q Chat, store the complete raw conversation data
   if (sessionData.platform === 'q-chat') {
     return {
