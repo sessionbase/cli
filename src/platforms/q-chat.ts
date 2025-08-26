@@ -107,7 +107,8 @@ export class QChatProvider extends BaseSessionProvider {
       platform: 'q-chat',
       title: this.generateSessionTitle(data),
       messageCount: this.calculateMessageCount(data),
-      modelName: data.model || 'unknown'
+      modelName: data.model || 'unknown',
+      sessionId: data.conversation_id
     };
   }
 
