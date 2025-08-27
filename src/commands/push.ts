@@ -178,7 +178,10 @@ function buildSessionPayload(sessionData: SessionData, options: any) {
       tokenCount: sessionData.tokenCount || 0,
       messageCount: sessionData.messages?.length || 0,
       ...(sessionData.sessionId && { sessionId: sessionData.sessionId }),
-      ...(sessionData.cwd && { cwd: sessionData.cwd })
+      ...(sessionData.cwd && { cwd: sessionData.cwd }),
+      // Include Gemini-specific fields
+      ...(sessionData.hashDir && { hashDir: sessionData.hashDir }),
+      ...(sessionData.tag && { tag: sessionData.tag })
     };
   }
 }

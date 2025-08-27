@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline';
 import chalk from 'chalk';
 import { getGeminiCliPath } from '../utils/paths.js';
 import { BaseSessionProvider } from './base-session-provider.js';
-import { SessionInfo, SessionData, SupportedPlatform } from './types.js';
+import { SessionInfo, SessionData, GeminiSessionData, SupportedPlatform } from './types.js';
 
 export class GeminiCliProvider extends BaseSessionProvider {
   readonly platform: SupportedPlatform = 'gemini-cli';
@@ -161,7 +161,7 @@ export class GeminiCliProvider extends BaseSessionProvider {
     return filePath;
   }
 
-  async parseSession(filePath: string): Promise<SessionData> {
+  async parseSession(filePath: string): Promise<GeminiSessionData> {
     const data = await this.parseJsonFile(filePath);
     
     if (!Array.isArray(data)) {
@@ -169,12 +169,18 @@ export class GeminiCliProvider extends BaseSessionProvider {
     }
     
     const actualMessages = this.filterActualMessages(data);
+    const pathParts = filePath.split('/');
+    const fileName = pathParts[pathParts.length - 1];
+    const hashDir = pathParts[pathParts.length - 2];
+    const tag = this.extractCheckpointTag(fileName);
     
     return {
       messages: actualMessages,
       title: this.generateDefaultTitle(),
       platform: 'gemini-cli',
-      messageCount: actualMessages.length
+      messageCount: actualMessages.length,
+      hashDir,
+      tag
     };
   }
 
@@ -196,14 +202,6 @@ export class GeminiCliProvider extends BaseSessionProvider {
     return filename === 'checkpoint.json' 
       ? 'default' 
       : filename.slice(11, -5); // Remove 'checkpoint-' and '.json'
-  }
-
-  private generateSessionId(hashDir: string, tag: string, mtime: Date): string {
-    const input = tag === 'default' 
-      ? `${hashDir}-default-${mtime.getTime()}`
-      : `${hashDir}-${tag}`;
-    
-    return createHash('sha256').update(input).digest('hex').substring(0, 16);
   }
 
   /*
@@ -284,11 +282,9 @@ export class GeminiCliProvider extends BaseSessionProvider {
           const tag = this.extractCheckpointTag(checkpoint);
           const sessionData = await this.parseGeminiSessionMetadata(filePath);
           const projectPath = knownProjectPath || await this.extractProjectPathFromFile(filePath);
-          
-          const consistentId = this.generateSessionId(hashDir, tag, stats.mtime);
-          
+
           sessions.push({
-            id: consistentId,
+            id: '', // Gemini does not provide sessions IDs. We will generate the ID server side.
             filePath,
             projectPath: projectPath || `Unknown (${hashDir.substring(0, 8)}...)`,
             lastModified: stats.mtime,

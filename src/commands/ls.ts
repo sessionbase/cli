@@ -168,8 +168,8 @@ function displaySingleSession(session: SessionInfo, displayIndex: number, provid
   
   // Display platform and session ID
   const platformDisplay = provider 
-    ? `${provider.displayName} ${provider.emoji} ${session.id}` 
-    : `💬 Chat ${session.id}`;
+    ? `${provider.displayName} ${provider.emoji}${session.id ? ` ${session.id}` : ''}` 
+    : `💬 Chat${session.id ? ` ${session.id}` : ''}`;
   console.log(chalk.dim(`   ${platformDisplay}`));
   console.log(chalk.dim(`   📁 ${session.filePath}`));
 

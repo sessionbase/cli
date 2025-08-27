@@ -21,6 +21,11 @@ export interface SessionData {
   [key: string]: any;
 }
 
+export interface GeminiSessionData extends SessionData {
+  hashDir: string;
+  tag: string;
+}
+
 export interface SessionInfo extends SessionData {
   id: string;
   filePath: string;
