@@ -12,6 +12,7 @@ export const pushCommand = new Command('push')
   .option('--claude', 'Push most recent Claude Code session from current directory')
   .option('--gemini', 'Push most recent Gemini CLI session from current directory')
   .option('--qchat', 'Push most recent Amazon Q Chat session from current directory')
+  .option('--codex', 'Push most recent OpenAI Codex session from current directory')
   .option('--private', 'Make the session private')
   .option('--title <title>', 'Session title')
   .option('--tags <tags>', 'Comma-separated tags')
@@ -21,7 +22,7 @@ export const pushCommand = new Command('push')
     const spinner = ora('Finding session...').start();
     
     try {
-      const platformFlags = [options.claude, options.gemini, options.qchat].filter(Boolean).length;
+      const platformFlags = [options.claude, options.gemini, options.qchat, options.codex].filter(Boolean).length;
       
       validateInputArguments(filePath, platformFlags);
       
@@ -42,7 +43,7 @@ export const pushCommand = new Command('push')
 function validateInputArguments(filePath: string | undefined, platformFlags: number): void {
   // Validate that we have either a file path or platform flag
   if (!filePath && platformFlags === 0) {
-    throw new Error('Must specify either a file path or a platform flag (--claude, --gemini, --qchat)');
+    throw new Error('Must specify either a file path or a platform flag (--claude, --gemini, --qchat, --codex)');
   }
   
   // Validate platform options - this will check for multiple flags

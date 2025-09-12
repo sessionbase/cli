@@ -9,6 +9,7 @@ export const lsCommand = new Command('ls')
   .option('--claude', 'Filter for Claude Code sessions')
   .option('--gemini', 'Filter for Gemini CLI sessions')
   .option('--qchat', 'Filter for Amazon Q Chat sessions')
+  .option('--codex', 'Filter for OpenAI Codex sessions')
   .option('--path <path>', 'Filter sessions by specific directory path')
   .option('--global', 'Include sessions from all projects')
   .action(async (options) => {

@@ -3,6 +3,7 @@ import { SessionProvider, SupportedPlatform, SessionData } from './types.js';
 import { ClaudeCodeProvider } from './claude-code.js';
 import { GeminiCliProvider } from './gemini-cli.js';
 import { QChatProvider } from './q-chat.js';
+import { CodexProvider } from './codex.js';
 
 /**
  * Registry of all available session providers
@@ -15,6 +16,7 @@ export class PlatformRegistry {
     this.registerProvider(new ClaudeCodeProvider());
     this.registerProvider(new GeminiCliProvider());
     this.registerProvider(new QChatProvider());
+    this.registerProvider(new CodexProvider());
   }
 
   private registerProvider(provider: SessionProvider): void {
@@ -55,18 +57,19 @@ export class PlatformRegistry {
   /**
    * Get provider by platform flag (from CLI options)
    */
-  getProviderFromOptions(options: { claude?: boolean; gemini?: boolean; qchat?: boolean }): SessionProvider | null {
+  getProviderFromOptions(options: { claude?: boolean; gemini?: boolean; qchat?: boolean; codex?: boolean }): SessionProvider | null {
     if (options.claude) return this.getProvider('claude-code') || null;
     if (options.gemini) return this.getProvider('gemini-cli') || null;
     if (options.qchat) return this.getProvider('qchat') || null;
+    if (options.codex) return this.getProvider('codex') || null;
     return null;
   }
 
   /**
    * Validate that only one platform flag is provided
    */
-  validatePlatformOptions(options: { claude?: boolean; gemini?: boolean; qchat?: boolean }): void {
-    const platformFlags = [options.claude, options.gemini, options.qchat].filter(Boolean);
+  validatePlatformOptions(options: { claude?: boolean; gemini?: boolean; qchat?: boolean; codex?: boolean }): void {
+    const platformFlags = [options.claude, options.gemini, options.qchat, options.codex].filter(Boolean);
     
     if (platformFlags.length > 1) {
       throw new Error('Can only specify one platform flag at a time');
@@ -101,5 +104,5 @@ export class PlatformRegistry {
 export const platformRegistry = new PlatformRegistry();
 
 // Export individual providers for direct usage if needed
-export { ClaudeCodeProvider, GeminiCliProvider, QChatProvider };
+export { ClaudeCodeProvider, GeminiCliProvider, QChatProvider, CodexProvider };
 export * from './types.js';

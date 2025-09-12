@@ -5,11 +5,12 @@ const cli = new SessionbaseCLI();
 
 export const listSessionsTool = {
   name: 'list_sessions',
-  description: 'List local chat sessions from Claude Code, Gemini CLI, and Amazon Q Chat',
+  description: 'List local chat sessions from Claude Code, Gemini CLI, Amazon Q Chat, and OpenAI Codex',
   inputSchema: z.object({
     claude: z.boolean().optional().describe('Filter for Claude Code sessions only'),
     gemini: z.boolean().optional().describe('Filter for Gemini CLI sessions only'),
     qchat: z.boolean().optional().describe('Filter for Amazon Q Chat sessions only'),
+    codex: z.boolean().optional().describe('Filter for OpenAI Codex sessions only'),
     path: z.string().optional().describe('Filter sessions by specific directory path'),
     global: z.boolean().optional().describe('Include sessions from all projects')
   }),
@@ -17,6 +18,7 @@ export const listSessionsTool = {
     claude?: boolean;
     gemini?: boolean;
     qchat?: boolean;
+    codex?: boolean;
     path?: string;
     global?: boolean;
   }) => {
@@ -42,11 +44,12 @@ export const listSessionsTool = {
 
 export const pushSessionTool = {
   name: 'push_session',
-  description: 'Push a chat session to SessionBase. IMPORTANT: You must specify which client you are - if you are Claude Code, use claude=true; if you are Gemini CLI, use gemini=true; if you are Amazon Q Chat, use qchat=true. Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful. If a Gemini session is stale (>10 minutes old), you can use the force parameter to push it anyway.',
+  description: 'Push a chat session to SessionBase. IMPORTANT: You must specify which client you are - if you are Claude Code, use claude=true; if you are Gemini CLI, use gemini=true; if you are Amazon Q Chat, use qchat=true; if you are OpenAI Codex, use codex=true. Always generate a descriptive title, relevant tags, and helpful summary based on the conversation content to make the session discoverable and useful. If a Gemini session is stale (>10 minutes old), you can use the force parameter to push it anyway.',
   inputSchema: z.object({
     claude: z.boolean().optional().describe('Set to true if you are Claude Code'),
     gemini: z.boolean().optional().describe('Set to true if you are Gemini CLI'),
     qchat: z.boolean().optional().describe('Set to true if you are Amazon Q Chat'),
+    codex: z.boolean().optional().describe('Set to true if you are OpenAI Codex'),
     private: z.boolean().optional().describe('Make the session private'),
     title: z.string().optional().describe('RECOMMENDED: Generate a clear, descriptive title that summarizes what was accomplished or discussed in this session (e.g., "Built SessionBase MCP Server", "Debugged React Authentication Issues")'),
     tags: z.string().optional().describe('RECOMMENDED: Generate relevant comma-separated tags based on technologies, topics, or tasks discussed (e.g., "typescript,mcp,sessionbase,api" or "react,debugging,authentication,frontend")'),
@@ -57,6 +60,7 @@ export const pushSessionTool = {
     claude?: boolean;
     gemini?: boolean;
     qchat?: boolean;
+    codex?: boolean;
     private?: boolean;
     title?: string;
     tags?: string;
@@ -65,7 +69,7 @@ export const pushSessionTool = {
   }) => {
     try {
       // Check if no client was specified
-      if (!params.claude && !params.gemini && !params.qchat) {
+      if (!params.claude && !params.gemini && !params.qchat && !params.codex) {
         return {
           content: [{
             type: 'text' as const,
@@ -75,6 +79,7 @@ You must specify which AI client you are:
 - If you are **Claude Code**, use: claude=true
 - If you are **Gemini CLI**, use: gemini=true  
 - If you are **Amazon Q Chat**, use: qchat=true
+- If you are **OpenAI Codex**, use: codex=true
 
 Example: \`sessionbase push --claude\``
           }],
@@ -86,6 +91,7 @@ Example: \`sessionbase push --claude\``
         claude: params.claude,
         gemini: params.gemini,
         qchat: params.qchat,
+        codex: params.codex,
         private: params.private,
         title: params.title,
         tags: params.tags,

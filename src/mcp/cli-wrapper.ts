@@ -27,6 +27,7 @@ export class SessionbaseCLI {
     claude?: boolean;
     gemini?: boolean;
     qchat?: boolean;
+    codex?: boolean;
     path?: string;
     global?: boolean;
   } = {}): Promise<string> {
@@ -34,6 +35,7 @@ export class SessionbaseCLI {
     if (options.claude) args.push('--claude');
     if (options.gemini) args.push('--gemini');
     if (options.qchat) args.push('--qchat');
+    if (options.codex) args.push('--codex');
     if (options.path) args.push('--path', options.path);
     if (options.global) args.push('--global');
     
@@ -45,6 +47,7 @@ export class SessionbaseCLI {
     claude?: boolean;
     gemini?: boolean;
     qchat?: boolean;
+    codex?: boolean;
     private?: boolean;
     title?: string;
     tags?: string;
@@ -56,6 +59,7 @@ export class SessionbaseCLI {
     if (options.claude) args.push('--claude');
     if (options.gemini) args.push('--gemini');
     if (options.qchat) args.push('--qchat');
+    if (options.codex) args.push('--codex');
     if (options.private) args.push('--private');
     if (options.title) args.push('--title', options.title);
     if (options.tags) args.push('--tags', options.tags);

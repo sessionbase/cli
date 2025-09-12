@@ -60,3 +60,10 @@ export function getClaudeCodePath(): string {
 export function getGeminiCliPath(): string {
   return join(homedir(), '.gemini', 'tmp');
 }
+
+/**
+ * Get Codex sessions path
+ */
+export function getCodexPath(): string {
+  return join(homedir(), '.codex', 'sessions');
+}

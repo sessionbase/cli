@@ -1,4 +1,4 @@
-export type SupportedPlatform = 'qchat' | 'claude-code' | 'gemini-cli';
+export type SupportedPlatform = 'qchat' | 'claude-code' | 'gemini-cli' | 'codex';
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
