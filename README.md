@@ -43,7 +43,7 @@ sessionbase whoami
 
 Note that all sessions are public and discoverable by default, unless you supply the `--private` flag. Private sessions are only visible to the owner of the session.
 
-Push your most recent AI chat session:
+Push your most recent AI chat session from your current directory:
 
 ```bash
 # From Claude Code
@@ -127,6 +127,39 @@ Once configured, use natural language in your AI chat:
 
 - "Push this to SessionBase"
 - "Push this session as private with the tags 'API debugging'"
+
+### Custom Slash Commands
+
+**Claude Code**
+
+```bash
+mkdir -p ~/.claude/commands
+echo "Use the sessionbase push_session tool to upload the current session" > ~/.claude/commands/upload.md
+```
+
+Now you can run `/upload` from Claude and it will automatically generate metadata and push to SessionBase. You can rename `upload.md` to create a different alias.
+
+**Gemini CLI**
+
+```bash
+mkdir -p ~/.gemini/commands
+touch ~/.gemini/commands/upload.toml
+```
+
+Add this content to `~/.gemini/commands/upload.toml`:
+
+```toml
+description="Upload the current session to SessionBase"
+prompt= """
+Use the sessionbase push_session tool to upload the current session.
+
+If you see a warning that the most recent session is outdated, ask the user to run `/chat save <tag>` to save a new checkpoint, then re-run /upload.
+"""
+```
+
+Now you can run `/upload` from Gemini CLI to automatically push sessions to SessionBase.
+
+**Note:** Amazon Q Chat and OpenAI Codex CLI do not currently support custom slash commands. Use natural language instead (e.g., "Push this to SessionBase").
 
 ## Platform Support
 
