@@ -112,7 +112,14 @@ export const loginCommand = new Command('login')
         // Success feedback
         console.log(chalk.green('✔ Logged in!'), chalk.dim('(API key stored securely)'));
         console.log();
-        
+
+        // Privacy notice
+        console.log(chalk.yellow('⚠ Privacy Notice:'));
+        console.log(chalk.dim('  Sessions are public and discoverable by default'));
+        console.log(chalk.dim('  Use sessionbase push --private for sensitive content'));
+        console.log(chalk.blue('  Privacy Policy: \u001b]8;;https://sessionbase.ai/privacy-policy\u001b\\https://sessionbase.ai/privacy-policy\u001b]8;;\u001b\\'));
+        console.log();
+
         // Show help to get started
         console.log(chalk.bold('Get started:'));
         console.log(chalk.dim('  sessionbase --help       Show all commands'));
