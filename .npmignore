@@ -11,4 +11,7 @@ node_modules/
 test/
 *.test.*
 
+# Ignore packed tarballs
+*.tgz
+
 # Keep: dist/, README.md, LICENSE, package.json
