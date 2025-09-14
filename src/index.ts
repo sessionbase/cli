@@ -16,7 +16,7 @@ const program = new Command();
 program
   .name('sessionbase')
   .description('CLI tool for SessionBase - manage and share AI coding sessions')
-  .version(packageJson.version);
+  .version(packageJson.version, '-v, --version', 'display version number');
 
 // Import and register command modules
 import { lsCommand } from './commands/ls.js';
