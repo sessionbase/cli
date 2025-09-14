@@ -1,0 +1,15 @@
+# Source files
+src/
+*.ts
+tsconfig.json
+tsup.config.ts
+
+# Development files
+.git/
+.gitignore
+node_modules/
+
+test/
+*.test.*
+
+# Keep: dist/, README.md, LICENSE, package.json
