@@ -1,9 +1,9 @@
 {
   "name": "@sessionbase/cli",
-  "version": "0.0.0-dev",
-  "private": true,
+  "version": "1.0.0",
   "type": "module",
   "description": "CLI tool for SessionBase - manage and share AI coding sessions",
+  "license": "MIT",
   "keywords": ["ai", "claude", "gemini", "codex", "qchat", "agents", "sessionbase", "mcp", "cli", "coding", "sessions", "chat", "assistant"],
   "homepage": "https://sessionbase.ai",
   "repository": {
@@ -14,6 +14,9 @@
     "url": "https://github.com/sessionbase/cli/issues"
   },
   "author": "SessionBase",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "sessionbase": "./dist/index.js",
     "sessionbase-mcp": "./dist/mcp.js",
@@ -25,6 +28,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsup",
+    "prepublishOnly": "npm run build",
     "test": "vitest"
   },
   "dependencies": {
