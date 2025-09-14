@@ -1,10 +1,24 @@
 {
   "name": "@sessionbase/cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "CLI tool for SessionBase - manage and share AI coding sessions",
   "license": "MIT",
-  "keywords": ["ai", "claude", "gemini", "codex", "qchat", "agents", "sessionbase", "mcp", "cli", "coding", "sessions", "chat", "assistant"],
+  "keywords": [
+    "ai",
+    "claude",
+    "gemini",
+    "codex",
+    "qchat",
+    "agents",
+    "sessionbase",
+    "mcp",
+    "cli",
+    "coding",
+    "sessions",
+    "chat",
+    "assistant"
+  ],
   "homepage": "https://sessionbase.ai",
   "repository": {
     "type": "git",
