@@ -4,7 +4,7 @@
 
 # SessionBase CLI
 
-CLI tool for SessionBase - manage and share AI coding sessions from Claude Code, Gemini CLI, and Amazon Q Chat.
+CLI tool for SessionBase - manage and share AI coding sessions from Claude Code, Gemini CLI, Amazon Q Chat, and OpenAI Codex CLI.
 
 ## Quick Start
 
@@ -54,6 +54,9 @@ sessionbase push --gemini
 
 # From Amazon Q Chat
 sessionbase push --qchat
+
+# From OpenAI Codex CLI
+sessionbase push --codex
 ```
 
 ## MCP Server Setup (Recommended)
@@ -94,6 +97,15 @@ Add to `~/.aws/amazonq/mcp.json`:
 }
 ```
 
+### OpenAI Codex CLI
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.sessionbase]
+command = "sessionbase-mcp"
+```
+
 ## Usage Examples
 
 ### CLI Commands
@@ -123,6 +135,7 @@ Once configured, use natural language in your AI chat:
 | **Claude Code** | Stores all session files automatically | Can push current session or list/choose from directory |
 | **Gemini CLI** | Only stores if you use `/chat save` | Can push saved sessions and list/choose from directory |
 | **Amazon Q Chat** | Only stores most recent session per directory | Can detect and push current session automatically |
+| **OpenAI Codex CLI** | Stores all session files automatically | Can push current session or list/choose from directory |
 
 ## Troubleshooting
 
