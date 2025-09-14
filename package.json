@@ -3,6 +3,17 @@
   "version": "0.0.0-dev",
   "private": true,
   "type": "module",
+  "description": "CLI tool for SessionBase - manage and share AI coding sessions",
+  "keywords": ["ai", "claude", "gemini", "codex", "qchat", "agents", "sessionbase", "mcp", "cli", "coding", "sessions", "chat", "assistant"],
+  "homepage": "https://sessionbase.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sessionbase/cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sessionbase/cli/issues"
+  },
+  "author": "SessionBase",
   "bin": {
     "sessionbase": "./dist/index.js",
     "sessionbase-mcp": "./dist/mcp.js",
