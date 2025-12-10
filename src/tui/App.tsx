@@ -68,14 +68,14 @@ export const App: React.FC = () => {
       if (key.escape) {
         setShowHelp(false);
       }
-      if (input === 'q' && !isSearchFocused) {
+      if (input === 'q' && !isSearchFocused && currentView !== 'sessions') {
         exit();
       }
       return;
     }
 
-    // Global shortcuts
-    if (input === 'q' && !isSearchFocused) {
+    // Global quit (disabled in sessions to avoid conflict with Q Chat filter)
+    if (input === 'q' && !isSearchFocused && currentView !== 'sessions') {
       exit();
       return;
     }
@@ -142,6 +142,10 @@ export const App: React.FC = () => {
       }
       if (input === 'x') {
         setSelectedPlatform('codex');
+        return;
+      }
+      if (input === 'q') {
+        setSelectedPlatform('qchat');
         return;
       }
 
