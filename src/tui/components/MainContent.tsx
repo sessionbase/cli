@@ -19,6 +19,10 @@ interface MainContentProps {
   selectedSessionIndex: number;
   isSearchFocused: boolean;
   sortOrder: 'recent' | 'oldest' | 'title';
+  detailOpen: boolean;
+  detail?: any;
+  detailLoading: boolean;
+  detailError: string | null;
 }
 
 export const MainContent: React.FC<MainContentProps> = ({
@@ -34,6 +38,10 @@ export const MainContent: React.FC<MainContentProps> = ({
   selectedSessionIndex,
   isSearchFocused,
   sortOrder,
+  detailOpen,
+  detail,
+  detailLoading,
+  detailError,
 }) => {
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -54,6 +62,10 @@ export const MainContent: React.FC<MainContentProps> = ({
           selectedSessionIndex={selectedSessionIndex}
           isSearchFocused={isSearchFocused}
           sortOrder={sortOrder}
+          detailOpen={detailOpen}
+          detail={detail}
+          detailLoading={detailLoading}
+          detailError={detailError}
         />
       )}
     </Box>

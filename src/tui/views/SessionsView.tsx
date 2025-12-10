@@ -4,6 +4,7 @@ import Spinner from 'ink-spinner';
 import { SessionInfo } from '../../platforms/types.js';
 import { SearchBar } from '../components/SearchBar.js';
 import { SessionList } from '../components/SessionList.js';
+import { formatDistanceToNow } from 'date-fns';
 
 interface SessionsViewProps {
   sessions: SessionInfo[];
@@ -15,6 +16,10 @@ interface SessionsViewProps {
   selectedSessionIndex: number;
   isSearchFocused: boolean;
   sortOrder: 'recent' | 'oldest' | 'title';
+  detailOpen: boolean;
+  detail?: any;
+  detailLoading: boolean;
+  detailError: string | null;
 }
 
 export const SessionsView: React.FC<SessionsViewProps> = ({
@@ -27,6 +32,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   selectedSessionIndex,
   isSearchFocused,
   sortOrder,
+  detailOpen,
+  detail,
+  detailLoading,
+  detailError,
 }) => {
   const platforms = [
     { key: 'all', label: 'All', emoji: '📋' },
@@ -125,14 +134,55 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
         </Text>
       </Box>
 
-      {/* Session List */}
+      {/* List + Detail split */}
       {sessions.length > 0 ? (
-        <Box flexDirection="column" flexGrow={1}>
-          <SessionList
-            sessions={sessions}
-            selectedIndex={selectedSessionIndex}
-            maxHeight={15}
-          />
+        <Box flexDirection="row" flexGrow={1} gap={1}>
+          <Box width={detailOpen ? '50%' : '100%'} flexDirection="column">
+            <SessionList
+              sessions={sessions}
+              selectedIndex={selectedSessionIndex}
+              maxHeight={15}
+            />
+          </Box>
+          {detailOpen && (
+            <Box
+              width="50%"
+              borderStyle="round"
+              borderColor="cyan"
+              padding={1}
+              flexDirection="column"
+              gap={1}
+            >
+              <Text bold color="cyan">Session Details</Text>
+              {detailLoading && (
+                <Text><Text color="cyan"><Spinner type="dots" /></Text> Loading detail...</Text>
+              )}
+              {detailError && <Text color="red">Error: {detailError}</Text>}
+              {!detailLoading && !detailError && detail && detail.session && (
+                <Box flexDirection="column" gap={0}>
+                  <Text>
+                    {detail.session.platform ? detail.session.platform : 'Platform'}{' '}
+                    | 💬 {detail.messageCount ?? detail.session.messageCount ?? '?'}{' '}
+                    | {formatDistanceToNow(detail.session.lastModified, { addSuffix: true })}
+                  </Text>
+                  <Text dimColor>Path: {detail.session.filePath}</Text>
+                  <Text dimColor>Project: {detail.session.projectPath}</Text>
+                  {detail.title && <Text>Title: {detail.title}</Text>}
+                  {detail.tags && detail.tags.length > 0 && (
+                    <Text dimColor>Tags: {detail.tags.join(', ')}</Text>
+                  )}
+                  <Text bold marginTop={1}>Preview:</Text>
+                  {detail.previewLines && detail.previewLines.length > 0 ? (
+                    detail.previewLines.map((line: string, idx: number) => (
+                      <Text key={idx} dimColor>{line}</Text>
+                    ))
+                  ) : (
+                    <Text dimColor>No preview available</Text>
+                  )}
+                </Box>
+              )}
+            </Box>
+          )}
         </Box>
       ) : (
         <Box padding={2}>
@@ -147,7 +197,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       {/* Navigation Hint */}
       <Box marginTop={1}>
         <Text dimColor>
-          Use ↑↓ to navigate • / to search • Tab to toggle focus • Enter to view details
+          Use ↑↓ to navigate • / to search • Tab to toggle focus • Enter to view details • Esc to close detail
         </Text>
       </Box>
     </Box>

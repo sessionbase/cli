@@ -4,6 +4,7 @@ import { View } from './types.js';
 import { Sidebar } from './components/Sidebar.js';
 import { MainContent } from './components/MainContent.js';
 import { useSessionData } from './hooks/useSessionData.js';
+import { useSessionDetail } from './hooks/useSessionDetail.js';
 
 export const App: React.FC = () => {
   const { exit } = useApp();
@@ -14,6 +15,7 @@ export const App: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'title'>('recent');
   const [showHelp, setShowHelp] = useState<boolean>(false);
+  const [detailOpen, setDetailOpen] = useState<boolean>(false);
 
   // Fetch data
   const { sessions, stats, isLoading, error, isAuth, userName } = useSessionData({
@@ -46,6 +48,13 @@ export const App: React.FC = () => {
     }
   }, [sessions, sortOrder]);
 
+  const selectedSession = sortedSessions[selectedSessionIndex] || null;
+
+  // Detail loading
+  const { detail, isLoading: detailLoading, error: detailError } = useSessionDetail(
+    detailOpen ? selectedSession : null
+  );
+
   // Keyboard shortcuts
   useInput((input, key) => {
     // Help overlay toggle
@@ -69,6 +78,21 @@ export const App: React.FC = () => {
     if (input === 'q' && !isSearchFocused) {
       exit();
       return;
+    }
+
+    // Toggle detail
+    if (key.return && currentView === 'sessions') {
+      if (sortedSessions.length > 0 && selectedSession) {
+        setDetailOpen(true);
+      }
+      return;
+    }
+
+    if (key.escape) {
+      if (detailOpen) {
+        setDetailOpen(false);
+        return;
+      }
     }
 
     // View switching
@@ -203,6 +227,10 @@ export const App: React.FC = () => {
           selectedSessionIndex={selectedSessionIndex}
           isSearchFocused={isSearchFocused}
           sortOrder={sortOrder}
+          detailOpen={detailOpen}
+          detail={detail}
+          detailLoading={detailLoading}
+          detailError={detailError}
         />
       </Box>
     </Box>
