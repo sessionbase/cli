@@ -39,6 +39,32 @@ Verify you're logged in:
 sessionbase whoami
 ```
 
+### Interactive Dashboard
+
+Launch the interactive TUI (Text User Interface) dashboard to browse and manage your local sessions:
+
+```bash
+sessionbase dashboard
+```
+
+The dashboard provides:
+- **Dashboard View**: Session statistics, platform breakdown, and activity heatmap
+- **Sessions Browser**: Interactive list of all local sessions with search and filtering
+- **Keyboard Navigation**: Fast navigation with keyboard shortcuts
+
+#### Dashboard Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `1` | Switch to Dashboard view |
+| `2` | Switch to Sessions view |
+| `/` | Focus search bar |
+| `a`, `c`, `g`, `q`, `x` | Filter by platform (All, Claude, Gemini, Q Chat, Codex) |
+| `↑` `↓` | Navigate sessions |
+| `Tab` | Toggle focus |
+| `Esc` | Clear search/unfocus |
+| `q` or `Ctrl+C` | Quit dashboard |
+
 ### Push Your First Session
 
 Note that all sessions are public and discoverable by default, unless you supply the `--private` flag. Private sessions are only visible to the owner of the session.
@@ -111,6 +137,9 @@ command = "sessionbase-mcp"
 ### CLI Commands
 
 ```bash
+# Launch interactive dashboard
+sessionbase dashboard
+
 # List all sessions
 sessionbase ls --global
 
