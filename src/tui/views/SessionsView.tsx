@@ -6,6 +6,8 @@ import { SearchBar } from '../components/SearchBar.js';
 import { SessionList } from '../components/SessionList.js';
 import { formatDistanceToNow } from 'date-fns';
 
+const PAGE_LINES = 20;
+
 interface SessionsViewProps {
   sessions: SessionInfo[];
   isLoading: boolean;
@@ -17,6 +19,8 @@ interface SessionsViewProps {
   isSearchFocused: boolean;
   sortOrder: 'recent' | 'oldest' | 'title';
   detailOpen: boolean;
+  detailExpanded: boolean;
+  detailPage: number;
   detail?: any;
   detailLoading: boolean;
   detailError: string | null;
@@ -33,6 +37,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   isSearchFocused,
   sortOrder,
   detailOpen,
+  detailExpanded,
+  detailPage,
   detail,
   detailLoading,
   detailError,
@@ -154,6 +160,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               gap={1}
             >
               <Text bold color="cyan">Session Details</Text>
+              <Text dimColor>
+                m: more/less • [{`[`}/{`]`} or PageUp/PageDown]: page transcript • Esc: close detail
+              </Text>
               {detailLoading && (
                 <Text><Text color="cyan"><Spinner type="dots" /></Text> Loading detail...</Text>
               )}
@@ -171,13 +180,23 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   {detail.tags && detail.tags.length > 0 && (
                     <Text dimColor>Tags: {detail.tags.join(', ')}</Text>
                   )}
-                  <Text bold marginTop={1}>Preview:</Text>
-                  {detail.previewLines && detail.previewLines.length > 0 ? (
-                    detail.previewLines.map((line: string, idx: number) => (
-                      <Text key={idx} dimColor>{line}</Text>
-                    ))
-                  ) : (
-                    <Text dimColor>No preview available</Text>
+                  {!detailExpanded && (
+                    <>
+                      <Text bold marginTop={1}>Preview:</Text>
+                      {detail.previewLines && detail.previewLines.length > 0 ? (
+                        detail.previewLines.map((line: string, idx: number) => (
+                          <Text key={idx} dimColor>{line}</Text>
+                        ))
+                      ) : (
+                        <Text dimColor>No preview available</Text>
+                      )}
+                    </>
+                  )}
+                  {detailExpanded && (
+                    <>
+                      <Text bold marginTop={1}>Transcript:</Text>
+                      {renderTranscript(detail, detailPage)}
+                    </>
                   )}
                 </Box>
               )}
@@ -203,4 +222,27 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
     </Box>
   );
 };
+
+function renderTranscript(detail: any, page: number) {
+  const lines: string[] = detail?.fullLines || [];
+  if (!lines.length) {
+    return <Text dimColor>No transcript available</Text>;
+  }
+
+  const start = page * PAGE_LINES;
+  const end = start + PAGE_LINES;
+  const slice = lines.slice(start, end);
+  const totalPages = Math.max(1, Math.ceil(lines.length / PAGE_LINES));
+
+  return (
+    <Box flexDirection="column" gap={0}>
+      {slice.map((line, idx) => (
+        <Text key={`${start}-${idx}`} dimColor>{line}</Text>
+      ))}
+      <Text dimColor marginTop={1}>
+        Page {page + 1} / {totalPages} ({lines.length} lines) • use [{`[`}/{`]`} or PageUp/PageDown]
+      </Text>
+    </Box>
+  );
+}
 

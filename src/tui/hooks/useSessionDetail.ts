@@ -8,10 +8,13 @@ export interface SessionDetailData {
   tags?: string[];
   messageCount?: number;
   previewLines: string[];
+  fullLines: string[];
 }
 
 const PREVIEW_LIMIT = 6; // max messages to show in preview
 const PREVIEW_CHARS = 200; // max chars to keep overall
+const FULL_PAGE_LINES = 200; // total lines cap (not per page)
+const FULL_LINE_TRUNC = 200; // max chars per line
 
 export function useSessionDetail(session: SessionInfo | null) {
   const cacheRef = useRef<Map<string, SessionDetailData>>(new Map());
@@ -53,6 +56,7 @@ export function useSessionDetail(session: SessionInfo | null) {
 
         const parsed: SessionData = await provider.parseSession(session.filePath);
         const previewLines = buildPreview(parsed);
+        const fullLines = buildFullLines(parsed);
 
         const data: SessionDetailData = {
           session,
@@ -60,6 +64,7 @@ export function useSessionDetail(session: SessionInfo | null) {
           tags: parsed.tags,
           messageCount: parsed.messageCount || parsed.messages?.length || parsed.history?.length,
           previewLines,
+          fullLines,
         };
 
         cacheRef.current.set(cacheKey, data);
@@ -136,5 +141,34 @@ function stringifyContent(content: any): string {
   if (content?.text) return content.text;
   if (typeof content === 'object') return JSON.stringify(content);
   return '';
+}
+
+function buildFullLines(parsed: SessionData): string[] {
+  const lines: string[] = [];
+
+  const pushLine = (role: string, content: string) => {
+    if (!content) return;
+    const truncated = content.length > FULL_LINE_TRUNC ? content.slice(0, FULL_LINE_TRUNC - 1) + '…' : content;
+    lines.push(`${role}: ${truncated}`);
+  };
+
+  if (parsed.history && Array.isArray(parsed.history)) {
+    for (const turn of parsed.history) {
+      const user = Array.isArray(turn) ? turn[0] : (turn as any).user;
+      const assistant = Array.isArray(turn) ? turn[1] : (turn as any).assistant;
+      if (user?.content) pushLine('user', stringifyContent(user.content));
+      if (assistant?.content) pushLine('assistant', stringifyContent(assistant.content));
+      if (lines.length >= FULL_PAGE_LINES) break;
+    }
+  } else if (parsed.messages && Array.isArray(parsed.messages)) {
+    for (const msg of parsed.messages) {
+      const role = msg.role || 'message';
+      const content = stringifyContent((msg as any).content || (msg as any).text || '');
+      pushLine(role, content);
+      if (lines.length >= FULL_PAGE_LINES) break;
+    }
+  }
+
+  return lines;
 }
 

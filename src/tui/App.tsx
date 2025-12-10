@@ -16,6 +16,8 @@ export const App: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'title'>('recent');
   const [showHelp, setShowHelp] = useState<boolean>(false);
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
+  const [detailExpanded, setDetailExpanded] = useState<boolean>(false);
+  const [detailPage, setDetailPage] = useState<number>(0);
 
   // Fetch data
   const { sessions, stats, isLoading, error, isAuth, userName } = useSessionData({
@@ -91,6 +93,8 @@ export const App: React.FC = () => {
     if (key.escape) {
       if (detailOpen) {
         setDetailOpen(false);
+        setDetailExpanded(false);
+        setDetailPage(0);
         return;
       }
     }
@@ -152,6 +156,25 @@ export const App: React.FC = () => {
       if (input === 's') {
         setSortOrder(prev => (prev === 'recent' ? 'oldest' : prev === 'oldest' ? 'title' : 'recent'));
         return;
+      }
+
+      // Detail expansion toggle
+      if (input === 'm' && detailOpen) {
+        setDetailExpanded((prev) => !prev);
+        setDetailPage(0);
+        return;
+      }
+
+      // Detail paging when expanded
+      if (detailOpen && detailExpanded) {
+        if (key.pageDown || input === ']') {
+          setDetailPage((prev) => prev + 1);
+          return;
+        }
+        if (key.pageUp || input === '[') {
+          setDetailPage((prev) => Math.max(0, prev - 1));
+          return;
+        }
       }
 
       // Session navigation
@@ -232,6 +255,8 @@ export const App: React.FC = () => {
           isSearchFocused={isSearchFocused}
           sortOrder={sortOrder}
           detailOpen={detailOpen}
+          detailExpanded={detailExpanded}
+          detailPage={detailPage}
           detail={detail}
           detailLoading={detailLoading}
           detailError={detailError}
