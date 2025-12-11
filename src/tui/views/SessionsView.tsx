@@ -13,7 +13,9 @@ interface SessionsViewProps {
   sessions: SessionInfo[];
   isLoading: boolean;
   searchQuery: string;
+  searchDraft: string;
   onSearchChange: (query: string) => void;
+  onSearchDraftChange: (query: string) => void;
   selectedPlatform: string;
   onPlatformChange: (platform: string) => void;
   selectedSessionIndex: number;
@@ -31,7 +33,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   sessions,
   isLoading,
   searchQuery,
+  searchDraft,
   onSearchChange,
+  onSearchDraftChange,
   selectedPlatform,
   onPlatformChange,
   selectedSessionIndex,
@@ -100,8 +104,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       {/* Search Bar */}
       <Box marginBottom={1}>
         <SearchBar
-          value={searchQuery}
-          onChange={onSearchChange}
+          value={searchDraft}
+          onChange={onSearchDraftChange}
           isFocused={isSearchFocused}
         />
       </Box>

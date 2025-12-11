@@ -12,6 +12,7 @@ export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchDraft, setSearchDraft] = useState<string>('');
   const [selectedSessionIndex, setSelectedSessionIndex] = useState<number>(0);
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'title'>('recent');
@@ -68,6 +69,13 @@ export const App: React.FC = () => {
     // Help overlay toggle
     if (input === '?') {
       setShowHelp((prev) => !prev);
+      return;
+    }
+
+    // If search is focused, Enter applies draft; Esc handled below
+    if (isSearchFocused && key.return) {
+      setSearchQuery(searchDraft);
+      setIsSearchFocused(false);
       return;
     }
 
@@ -128,6 +136,7 @@ export const App: React.FC = () => {
       if (isSearchFocused) {
         setIsSearchFocused(false);
         setSearchQuery('');
+        setSearchDraft('');
       }
       return;
     }
@@ -260,7 +269,9 @@ export const App: React.FC = () => {
           stats={stats}
           isLoading={isLoading}
           searchQuery={searchQuery}
+          searchDraft={searchDraft}
           onSearchChange={setSearchQuery}
+          onSearchDraftChange={setSearchDraft}
           selectedPlatform={selectedPlatform}
           onPlatformChange={setSelectedPlatform}
           selectedSessionIndex={selectedSessionIndex}

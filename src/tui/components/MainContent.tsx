@@ -13,7 +13,9 @@ interface MainContentProps {
   stats: SessionStats | null;
   isLoading: boolean;
   searchQuery: string;
+  searchDraft: string;
   onSearchChange: (query: string) => void;
+  onSearchDraftChange: (query: string) => void;
   selectedPlatform: string;
   onPlatformChange: (platform: string) => void;
   selectedSessionIndex: number;
@@ -34,7 +36,9 @@ export const MainContent: React.FC<MainContentProps> = ({
   stats,
   isLoading,
   searchQuery,
+  searchDraft,
   onSearchChange,
+  onSearchDraftChange,
   selectedPlatform,
   onPlatformChange,
   selectedSessionIndex,
@@ -60,7 +64,9 @@ export const MainContent: React.FC<MainContentProps> = ({
           sessions={sortedSessions}
           isLoading={isLoading}
           searchQuery={searchQuery}
+          searchDraft={searchDraft}
           onSearchChange={onSearchChange}
+          onSearchDraftChange={onSearchDraftChange}
           selectedPlatform={selectedPlatform}
           onPlatformChange={onPlatformChange}
           selectedSessionIndex={selectedSessionIndex}
