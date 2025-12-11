@@ -7,6 +7,7 @@ import { SessionList } from '../components/SessionList.js';
 import { formatDistanceToNow } from 'date-fns';
 
 const PAGE_LINES = 20;
+const TRUNC_LINE = 120;
 
 interface SessionsViewProps {
   sessions: SessionInfo[];
@@ -237,12 +238,17 @@ function renderTranscript(detail: any, page: number) {
   return (
     <Box flexDirection="column" gap={0}>
       {slice.map((line, idx) => (
-        <Text key={`${start}-${idx}`} dimColor>{line}</Text>
+        <Text key={`${start}-${idx}`} dimColor>{maybeTrunc(line)}</Text>
       ))}
       <Text dimColor marginTop={1}>
         Page {page + 1} / {totalPages} ({lines.length} lines) • use [{`[`}/{`]`} or PageUp/PageDown]
       </Text>
     </Box>
   );
+}
+
+function maybeTrunc(text: string) {
+  if (text.length <= TRUNC_LINE) return text;
+  return text.slice(0, TRUNC_LINE - 1) + '…';
 }
 

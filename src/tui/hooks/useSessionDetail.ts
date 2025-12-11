@@ -15,6 +15,7 @@ const PREVIEW_LIMIT = 6; // max messages to show in preview
 const PREVIEW_CHARS = 200; // max chars to keep overall
 const FULL_PAGE_LINES = 200; // total lines cap (not per page)
 const FULL_LINE_TRUNC = 200; // max chars per line
+type NormalizedLine = { role: string; text: string };
 
 export function useSessionDetail(session: SessionInfo | null) {
   const cacheRef = useRef<Map<string, SessionDetailData>>(new Map());
@@ -55,8 +56,9 @@ export function useSessionDetail(session: SessionInfo | null) {
         }
 
         const parsed: SessionData = await provider.parseSession(session.filePath);
-        const previewLines = buildPreview(parsed);
-        const fullLines = buildFullLines(parsed);
+        const normalized = normalizeLines(parsed, session.platform);
+        const previewLines = buildPreviewFromLines(normalized);
+        const fullLines = buildFullLinesFromLines(normalized);
 
         const data: SessionDetailData = {
           session,
@@ -68,12 +70,18 @@ export function useSessionDetail(session: SessionInfo | null) {
         };
 
         cacheRef.current.set(cacheKey, data);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/2512feb5-b2b3-442f-865d-ae88255c8b60',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'m-toggle',hypothesisId:'H3',location:'useSessionDetail',message:'detail-loaded',data:{filePath:session.filePath,previewCount:previewLines.length,fullCount:fullLines.length},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         if (!cancelled) {
           setDetail(data);
         }
       } catch (err: any) {
         if (!cancelled) {
           setError(err?.message || 'Failed to load session detail');
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/2512feb5-b2b3-442f-865d-ae88255c8b60',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'m-toggle',hypothesisId:'H3',location:'useSessionDetail',message:'detail-error',data:{filePath:session?.filePath || null,error:err?.message || 'unknown'},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           setDetail(null);
         }
       } finally {
@@ -92,83 +100,147 @@ export function useSessionDetail(session: SessionInfo | null) {
   return { detail, isLoading, error };
 }
 
-function buildPreview(parsed: SessionData): string[] {
-  const lines: string[] = [];
-
-  const pushLine = (role: string, content: string) => {
-    if (!content) return;
-    lines.push(`${role}: ${content}`);
-  };
-
-  if (parsed.history && Array.isArray(parsed.history)) {
-    const limited = parsed.history.slice(0, PREVIEW_LIMIT);
-    for (const turn of limited) {
-      const user = Array.isArray(turn) ? turn[0] : (turn as any).user;
-      const assistant = Array.isArray(turn) ? turn[1] : (turn as any).assistant;
-      if (user?.content) pushLine('user', stringifyContent(user.content));
-      if (assistant?.content) pushLine('assistant', stringifyContent(assistant.content));
-      if (lines.length >= PREVIEW_LIMIT) break;
-    }
-  } else if (parsed.messages && Array.isArray(parsed.messages)) {
-    for (const msg of parsed.messages.slice(0, PREVIEW_LIMIT)) {
-      const role = msg.role || 'message';
-      const content = stringifyContent((msg as any).content || (msg as any).text || '');
-      pushLine(role, content);
-      if (lines.length >= PREVIEW_LIMIT) break;
-    }
-  }
-
-  // Trim total characters
+function buildPreviewFromLines(lines: NormalizedLine[]): string[] {
+  const limited = lines.slice(0, PREVIEW_LIMIT);
   let total = 0;
   const trimmed: string[] = [];
-  for (const line of lines) {
+  for (const ln of limited) {
+    const line = `${ln.role}: ${ln.text}`;
     if (total >= PREVIEW_CHARS) break;
     const room = PREVIEW_CHARS - total;
     const trimmedLine = line.length > room ? line.slice(0, room - 1) + '…' : line;
     trimmed.push(trimmedLine);
     total += trimmedLine.length;
   }
-
   return trimmed;
+}
+
+function buildFullLinesFromLines(lines: NormalizedLine[]): string[] {
+  const out: string[] = [];
+  for (const ln of lines) {
+    if (out.length >= FULL_PAGE_LINES) break;
+    const content = ln.text.length > FULL_LINE_TRUNC ? ln.text.slice(0, FULL_LINE_TRUNC - 1) + '…' : ln.text;
+    out.push(`${ln.role}: ${content}`);
+  }
+  return out;
+}
+
+function normalizeLines(parsed: SessionData, platform?: string): NormalizedLine[] {
+  if (platform === 'codex') return normalizeCodex(parsed);
+  if (platform === 'claude-code') return normalizeClaude(parsed);
+  if (platform === 'gemini-cli') return normalizeGemini(parsed);
+  if (platform === 'qchat') return normalizeQChat(parsed);
+  // fallback generic
+  const lines: NormalizedLine[] = [];
+  if (parsed.history && Array.isArray(parsed.history)) {
+    for (const turn of parsed.history) {
+      const user = Array.isArray(turn) ? turn[0] : (turn as any).user;
+      const assistant = Array.isArray(turn) ? turn[1] : (turn as any).assistant;
+      if (user?.content) lines.push({ role: 'user', text: stringifyContent(user.content) });
+      if (assistant?.content) lines.push({ role: 'assistant', text: stringifyContent(assistant.content) });
+      if (lines.length >= FULL_PAGE_LINES) break;
+    }
+  } else if (parsed.messages && Array.isArray(parsed.messages)) {
+    for (const msg of parsed.messages) {
+      const role = (msg as any).role || 'message';
+      const content = stringifyContent((msg as any).content || (msg as any).text || '');
+      lines.push({ role, text: content });
+      if (lines.length >= FULL_PAGE_LINES) break;
+    }
+  }
+  return lines;
+}
+
+function normalizeCodex(parsed: SessionData): NormalizedLine[] {
+  const lines: NormalizedLine[] = [];
+  const records = parsed.messages || [];
+  for (const rec of records) {
+    if (rec && typeof rec === 'object') {
+      if ((rec as any).type === 'response_item' && (rec as any).payload?.type === 'message') {
+        const contentArr = (rec as any).payload?.content || [];
+        const text = extractInputText(contentArr);
+        if (text) lines.push({ role: (rec as any).payload?.role || 'message', text });
+      } else if ((rec as any).type === 'message' && Array.isArray((rec as any).content)) {
+        const text = extractInputText((rec as any).content);
+        if (text) lines.push({ role: (rec as any).role || 'message', text });
+      }
+    }
+    if (lines.length >= FULL_PAGE_LINES) break;
+  }
+  return lines;
+}
+
+function normalizeClaude(parsed: SessionData): NormalizedLine[] {
+  const lines: NormalizedLine[] = [];
+  const records = parsed.messages || [];
+  for (const rec of records) {
+    const msg = (rec as any).message || rec;
+    const role = msg?.role || (msg?.author && msg.author.role) || 'message';
+    const content = msg?.content;
+    if (content) {
+      const text = stringifyContent(content);
+      if (text) lines.push({ role, text });
+    }
+    if (lines.length >= FULL_PAGE_LINES) break;
+  }
+  return lines;
+}
+
+function normalizeGemini(parsed: SessionData): NormalizedLine[] {
+  const lines: NormalizedLine[] = [];
+  const msgs = parsed.messages || [];
+  for (const msg of msgs) {
+    const role = (msg as any).role || 'message';
+    const parts = (msg as any).parts;
+    if (Array.isArray(parts)) {
+      const textPart = parts.find((p: any) => p?.text)?.text;
+      if (textPart) lines.push({ role, text: textPart });
+    }
+    if (lines.length >= FULL_PAGE_LINES) break;
+  }
+  return lines;
+}
+
+function normalizeQChat(parsed: SessionData): NormalizedLine[] {
+  const lines: NormalizedLine[] = [];
+  const history = parsed.history || [];
+  for (const turn of history) {
+    const user = Array.isArray(turn) ? turn[0] : (turn as any).user;
+    const assistant = Array.isArray(turn) ? turn[1] : (turn as any).assistant;
+    if (user?.content?.Prompt?.prompt) lines.push({ role: 'user', text: user.content.Prompt.prompt });
+    if (assistant?.content?.completion) lines.push({ role: 'assistant', text: assistant.content.completion });
+    if (lines.length >= FULL_PAGE_LINES) break;
+  }
+  return lines;
 }
 
 function stringifyContent(content: any): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
-    const text = content.find((c: any) => c?.text)?.text;
-    if (text) return text;
+    const textArr = content.map((c: any) => c?.text || '').filter(Boolean);
+    if (textArr.length) return textArr.join(' ');
+    const inputText = content.find((c: any) => c?.type === 'input_text' && c?.text)?.text;
+    if (inputText) return inputText;
+    const plain = content.find((c: any) => typeof c === 'string');
+    if (plain) return plain as string;
   }
   if (content?.text) return content.text;
   if (typeof content === 'object') return JSON.stringify(content);
   return '';
 }
 
-function buildFullLines(parsed: SessionData): string[] {
-  const lines: string[] = [];
-
-  const pushLine = (role: string, content: string) => {
-    if (!content) return;
-    const truncated = content.length > FULL_LINE_TRUNC ? content.slice(0, FULL_LINE_TRUNC - 1) + '…' : content;
-    lines.push(`${role}: ${truncated}`);
-  };
-
-  if (parsed.history && Array.isArray(parsed.history)) {
-    for (const turn of parsed.history) {
-      const user = Array.isArray(turn) ? turn[0] : (turn as any).user;
-      const assistant = Array.isArray(turn) ? turn[1] : (turn as any).assistant;
-      if (user?.content) pushLine('user', stringifyContent(user.content));
-      if (assistant?.content) pushLine('assistant', stringifyContent(assistant.content));
-      if (lines.length >= FULL_PAGE_LINES) break;
-    }
-  } else if (parsed.messages && Array.isArray(parsed.messages)) {
-    for (const msg of parsed.messages) {
-      const role = msg.role || 'message';
-      const content = stringifyContent((msg as any).content || (msg as any).text || '');
-      pushLine(role, content);
-      if (lines.length >= FULL_PAGE_LINES) break;
+function extractInputText(contentArr: any[]): string {
+  if (!Array.isArray(contentArr)) return '';
+  const texts: string[] = [];
+  for (const c of contentArr) {
+    if (c?.type === 'input_text' && c?.text) {
+      texts.push(c.text);
+    } else if (typeof c === 'string') {
+      texts.push(c);
+    } else if (c?.text) {
+      texts.push(c.text);
     }
   }
-
-  return lines;
+  return texts.join(' ').trim();
 }
 

@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar.js';
 import { MainContent } from './components/MainContent.js';
 import { useSessionData } from './hooks/useSessionData.js';
 import { useSessionDetail } from './hooks/useSessionDetail.js';
+import { useRef } from 'react';
 
 export const App: React.FC = () => {
   const { exit } = useApp();
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [detailExpanded, setDetailExpanded] = useState<boolean>(false);
   const [detailPage, setDetailPage] = useState<number>(0);
+  const lastMToggleRef = useRef<number>(0);
 
   // Fetch data
   const { sessions, stats, isLoading, error, isAuth, userName } = useSessionData({
@@ -57,6 +59,10 @@ export const App: React.FC = () => {
     detailOpen ? selectedSession : null
   );
 
+  React.useEffect(() => {
+    if (!detailOpen) return;
+  }, [detailExpanded, detailPage, detailOpen, detail]);
+
   // Keyboard shortcuts
   useInput((input, key) => {
     // Help overlay toggle
@@ -86,6 +92,8 @@ export const App: React.FC = () => {
     if (key.return && currentView === 'sessions') {
       if (sortedSessions.length > 0 && selectedSession) {
         setDetailOpen(true);
+        setDetailExpanded(false);
+        setDetailPage(0);
       }
       return;
     }
@@ -159,9 +167,13 @@ export const App: React.FC = () => {
       }
 
       // Detail expansion toggle
-      if (input === 'm' && detailOpen) {
-        setDetailExpanded((prev) => !prev);
-        setDetailPage(0);
+      if (input?.toLowerCase() === 'm' && detailOpen) {
+        const now = Date.now();
+        if (now - lastMToggleRef.current > 800) {
+          lastMToggleRef.current = now;
+          setDetailExpanded((prev) => !prev);
+          setDetailPage(0);
+        }
         return;
       }
 

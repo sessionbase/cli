@@ -20,6 +20,8 @@ interface MainContentProps {
   isSearchFocused: boolean;
   sortOrder: 'recent' | 'oldest' | 'title';
   detailOpen: boolean;
+  detailExpanded: boolean;
+  detailPage: number;
   detail?: any;
   detailLoading: boolean;
   detailError: string | null;
@@ -39,6 +41,8 @@ export const MainContent: React.FC<MainContentProps> = ({
   isSearchFocused,
   sortOrder,
   detailOpen,
+  detailExpanded,
+  detailPage,
   detail,
   detailLoading,
   detailError,
@@ -63,6 +67,8 @@ export const MainContent: React.FC<MainContentProps> = ({
           isSearchFocused={isSearchFocused}
           sortOrder={sortOrder}
           detailOpen={detailOpen}
+          detailExpanded={detailExpanded}
+          detailPage={detailPage}
           detail={detail}
           detailLoading={detailLoading}
           detailError={detailError}
