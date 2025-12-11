@@ -60,10 +60,6 @@ export const App: React.FC = () => {
     detailOpen ? selectedSession : null
   );
 
-  React.useEffect(() => {
-    if (!detailOpen) return;
-  }, [detailExpanded, detailPage, detailOpen, detail]);
-
   // Keyboard shortcuts
   useInput((input, key) => {
     // Help overlay toggle
