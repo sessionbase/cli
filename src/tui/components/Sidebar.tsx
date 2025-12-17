@@ -17,7 +17,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, isAuthenticated, 
   return (
     <Box
       flexDirection="column"
-      width={20}
+      minWidth={20}
       borderStyle="round"
       borderColor="cyan"
       padding={1}

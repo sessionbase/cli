@@ -126,7 +126,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             <SessionList
               sessions={sessions}
               selectedIndex={selectedSessionIndex}
-              maxHeight={15}
+              maxHeight={7}
             />
           </Box>
           {detailOpen && (
