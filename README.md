@@ -12,8 +12,8 @@ A powerful CLI tool for SessionBase featuring an interactive TUI dashboard to br
 
 Experience SessionBase through our powerful Terminal User Interface (TUI) - the fastest way to browse, search, and manage your AI coding sessions directly from your terminal.
 
-![Dashboard Screenshot](./dashboard_ss.png)
-![Sessions Browser Screenshot](./sessions_screenshot.png)
+![Dashboard Screenshot](./Dashboard-ss.png)
+![Sessions Browser Screenshot](./Sessions_ss.png)
 
 ### Launch the Dashboard
 
