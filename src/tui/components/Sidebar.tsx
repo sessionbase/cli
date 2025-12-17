@@ -29,44 +29,59 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, isAuthenticated, 
         </Text>
       </Box>
 
-      {/* Menu Items */}
+      {/* Separator */}
+      <Box marginBottom={1}>
+        <Text dimColor>{'─'.repeat(18)}</Text>
+      </Box>
+
+      {/* Navigation Menu with shortcuts */}
       <Box flexDirection="column" marginBottom={1}>
         {menuItems.map((item) => {
           const isActive = currentView === item.key;
           return (
-            <Box key={item.key} marginY={0}>
+            <Box key={item.key} justifyContent="space-between">
               <Text color={isActive ? 'cyan' : undefined} bold={isActive}>
-                {isActive ? '→ ' : '  '}
+                {isActive ? '▸ ' : '  '}
                 {item.label}
               </Text>
+              <Text dimColor>[{item.shortcut}]</Text>
             </Box>
           );
         })}
       </Box>
 
-      {/* Spacer */}
-      <Box flexGrow={1} />
-
-      {/* Auth Status */}
-      <Box flexDirection="column" marginTop={1} marginBottom={1}>
-        <Text dimColor>Auth Status</Text>
-        <Box>
-          <Text color={isAuthenticated ? 'green' : 'red'}>
-            {isAuthenticated ? '✓ ' : '✗ '}
-            {isAuthenticated ? (userName || 'Authenticated') : 'Not logged in'}
-          </Text>
-        </Box>
+      {/* Separator */}
+      <Box marginBottom={1}>
+        <Text dimColor>{'─'.repeat(18)}</Text>
       </Box>
 
-      {/* Keyboard Shortcuts */}
-      <Box flexDirection="column" borderStyle="single" borderColor="gray" padding={1}>
-        <Text dimColor bold>
+      {/* Compact Auth Status */}
+      <Box marginBottom={1}>
+        <Text color={isAuthenticated ? 'green' : 'red'}>
+          {isAuthenticated ? '✓ ' : '✗ '}
+          <Text dimColor>@</Text>
+          {isAuthenticated ? (userName || 'User') : 'Not logged in'}
+        </Text>
+      </Box>
+
+      {/* Separator */}
+      <Box marginBottom={1}>
+        <Text dimColor>{'─'.repeat(18)}</Text>
+      </Box>
+
+      {/* Additional Shortcuts */}
+      <Box flexDirection="column">
+        <Text dimColor bold marginBottom={0}>
           Shortcuts
         </Text>
-        <Text dimColor>[1] Dashboard</Text>
-        <Text dimColor>[2] Sessions</Text>
-        <Text dimColor>[/] Search</Text>
-        <Text dimColor>[q] Quit</Text>
+        <Box justifyContent="space-between">
+          <Text dimColor>[/]</Text>
+          <Text dimColor>Search</Text>
+        </Box>
+        <Box justifyContent="space-between">
+          <Text dimColor>[q]</Text>
+          <Text dimColor>Quit</Text>
+        </Box>
       </Box>
     </Box>
   );

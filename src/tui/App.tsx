@@ -122,8 +122,11 @@ export const App: React.FC = () => {
       return;
     }
 
-    // Search focus
-    if (input === '/' && currentView === 'sessions') {
+    // Search focus - works globally, switches to sessions view if needed
+    if (input === '/' && !isSearchFocused) {
+      if (currentView !== 'sessions') {
+        setCurrentView('sessions');
+      }
       setIsSearchFocused(true);
       return;
     }
@@ -137,8 +140,9 @@ export const App: React.FC = () => {
       return;
     }
 
-    if (key.tab) {
-      setIsSearchFocused(!isSearchFocused);
+    if (key.tab && !isSearchFocused) {
+      // Tab switches between dashboard and sessions
+      setCurrentView(prev => prev === 'dashboard' ? 'sessions' : 'dashboard');
       return;
     }
 
