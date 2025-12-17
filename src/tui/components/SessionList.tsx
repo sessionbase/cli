@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { SessionInfo } from '../../platforms/types.js';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 
 interface SessionListProps {
   sessions: SessionInfo[];
@@ -58,6 +58,12 @@ export const SessionList: React.FC<SessionListProps> = ({
   const visibleSessions = sessions.slice(startIdx, endIdx);
   const selected = sessions[selectedIndex];
 
+  const formatGroupLabel = (date: Date) => {
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, 'MMM d, yyyy');
+  };
+
   return (
     <Box flexDirection="column">
       {visibleSessions.map((session, idx) => {
@@ -67,23 +73,40 @@ export const SessionList: React.FC<SessionListProps> = ({
         const platformName = getPlatformName(session.platform || '');
         const preview = session.firstMessagePreview || session.title || session.id || 'Untitled';
         const timeAgo = formatDistanceToNow(session.lastModified, { addSuffix: true });
+        const groupLabel = formatGroupLabel(session.lastModified);
+        const showGroupHeader = idx === 0 || formatGroupLabel(visibleSessions[idx - 1].lastModified) !== groupLabel;
+        const tags = session.tags && session.tags.length ? session.tags.slice(0, 3) : [];
 
         return (
           <Box key={actualIdx} flexDirection="column" marginY={0}>
+            {showGroupHeader && (
+              <Box marginTop={idx === 0 ? 0 : 1} marginBottom={0}>
+                <Text dimColor>─ {groupLabel} ─</Text>
+              </Box>
+            )}
             <Box>
               <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
-                {isSelected ? '→ ' : '  '}
+                {isSelected ? '➤ ' : '  '}
                 {emoji} {preview.slice(0, 60)}{preview.length > 60 ? '...' : ''}
               </Text>
             </Box>
             <Box paddingLeft={4}>
               <Text dimColor>
-                💬 {session.messageCount} messages | {timeAgo} | {platformName}
+                💬 {session.messageCount ?? '?'} • {timeAgo} • {platformName}
               </Text>
             </Box>
+            {tags.length > 0 && (
+              <Box paddingLeft={4} gap={1}>
+                {tags.map((tag, tagIdx) => (
+                  <Text key={tagIdx} dimColor>[{tag}]</Text>
+                ))}
+                {session.tags && session.tags.length > tags.length && <Text dimColor>…</Text>}
+              </Box>
+            )}
             {isSelected && (
-              <Box paddingLeft={4}>
+              <Box paddingLeft={4} flexDirection="column" gap={0}>
                 <Text dimColor>📁 {session.filePath}</Text>
+                <Text dimColor>📂 {session.projectPath}</Text>
               </Box>
             )}
           </Box>

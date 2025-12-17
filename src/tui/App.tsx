@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, useInput, useApp } from 'ink';
+import { Box, useInput, useApp, Text } from 'ink';
 import { View } from './types.js';
 import { Sidebar } from './components/Sidebar.js';
 import { MainContent } from './components/MainContent.js';

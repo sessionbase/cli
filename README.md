@@ -4,7 +4,61 @@
 
 # SessionBase CLI
 
-CLI tool for SessionBase - manage and share AI coding sessions from Claude Code, Gemini CLI, Amazon Q Chat, and OpenAI Codex CLI.
+**🚀 Interactive Terminal Dashboard** - The fastest way to manage your AI coding sessions
+
+A powerful CLI tool for SessionBase featuring an interactive TUI dashboard to browse, search, and manage AI coding sessions from Claude Code, Gemini CLI, Amazon Q Chat, and OpenAI Codex CLI.
+
+## 🖥️ Interactive Terminal Dashboard
+
+Experience SessionBase through our powerful Terminal User Interface (TUI) - the fastest way to browse, search, and manage your AI coding sessions directly from your terminal.
+
+![Dashboard Screenshot](./dashboard_ss.png)
+![Sessions Browser Screenshot](./sessions_screenshot.png)
+
+### Launch the Dashboard
+
+```bash
+sessionbase dashboard
+# or use the shorthand
+sb dashboard
+```
+
+### Dashboard Features
+
+**📊 Dashboard View**
+- Session statistics and metrics
+- Platform breakdown visualization
+- Activity heatmap showing your coding patterns
+- Quick access to recent sessions
+
+**🔍 Sessions Browser**
+- **Smart Date Grouping**: Sessions organized by "Today", "Yesterday", and specific dates
+- **Advanced Search**: Filter by platform, search within session content, or browse by tags
+- **Rich Metadata Display**: View message counts, timestamps, file paths, and project locations
+- **Tag System**: Organize sessions with custom tags and filter by them
+- **Split-Screen Details**: View session details alongside the list without losing context
+
+**⌨️ Keyboard-First Navigation**
+- **Instant Search**: Press `/` to focus search, `Enter` to apply
+- **Platform Filters**: `a` (All), `c` (Claude), `g` (Gemini), `q` (Q Chat), `x` (Codex)
+- **Sort Options**: Press `s` to cycle through Recent/Oldest/Title sorting
+- **Session Details**: `Enter` to expand details, `Esc` to close
+- **Efficient Movement**: Arrow keys for navigation, `Tab` to toggle focus
+
+#### Complete Keyboard Reference
+
+| Key | Action |
+|-----|--------|
+| `1` | Switch to Dashboard view |
+| `2` | Switch to Sessions view |
+| `↑` `↓` | Navigate sessions |
+| `/` | Focus search bar |
+| `Enter` | Apply search / Open session details |
+| `Esc` | Clear search / Close details / Unfocus |
+| `Tab` | Toggle focus between search and list |
+| `a`, `c`, `g`, `q`, `x` | Filter by platform |
+| `s` | Cycle sort order (Recent → Oldest → Title) |
+| `q` or `Ctrl+C` | Quit dashboard |
 
 ## Quick Start
 
@@ -19,8 +73,8 @@ npm install -g @sessionbase/cli
 ```
 
 This provides two commands:
-- `sessionbase` - Main CLI interface
- - `sb` - Shorthand alias for faster typing 
+- `sessionbase` - Main CLI interface with TUI dashboard
+- `sb` - Shorthand alias for faster typing
 - `sessionbase-mcp` - MCP server for AI platforms
 
 ### Authentication
@@ -39,32 +93,6 @@ Verify you're logged in:
 sessionbase whoami
 ```
 
-### Interactive Dashboard
-
-Launch the interactive TUI (Text User Interface) dashboard to browse and manage your local sessions:
-
-```bash
-sessionbase dashboard
-```
-
-The dashboard provides:
-- **Dashboard View**: Session statistics, platform breakdown, and activity heatmap
-- **Sessions Browser**: Interactive list of all local sessions with search and filtering
-- **Keyboard Navigation**: Fast navigation with keyboard shortcuts
-
-#### Dashboard Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `1` | Switch to Dashboard view |
-| `2` | Switch to Sessions view |
-| `/` | Focus search bar |
-| `a`, `c`, `g`, `q`, `x` | Filter by platform (All, Claude, Gemini, Q Chat, Codex) |
-| `↑` `↓` | Navigate sessions |
-| `Tab` | Toggle focus |
-| `Esc` | Clear search/unfocus |
-| `q` or `Ctrl+C` | Quit dashboard |
-
 ### Push Your First Session
 
 Note that all sessions are public and discoverable by default, unless you supply the `--private` flag. Private sessions are only visible to the owner of the session.
@@ -74,6 +102,8 @@ Push your most recent AI chat session from your current directory:
 ```bash
 # From Claude Code
 sessionbase push --claude
+# or
+sb push --claude
 
 # From Gemini CLI (after saving with /chat save)
 sessionbase push --gemini
@@ -85,9 +115,11 @@ sessionbase push --qchat
 sessionbase push --codex
 ```
 
+**💡 Pro Tip**: Use the TUI dashboard (`sessionbase dashboard`) to browse your local sessions before pushing them to SessionBase!
+
 ## MCP Server Setup (Recommended)
 
-The MCP server enables you to push sessions directly from your AI chat without breaking your workflow.
+The MCP server enables you to push sessions directly from your AI chat without breaking your workflow. Combine it with the interactive TUI dashboard for the complete SessionBase experience!
 
 ### Claude Code
 
@@ -134,20 +166,34 @@ command = "sessionbase-mcp"
 
 ## Usage Examples
 
+### Terminal Dashboard (Recommended)
+
+```bash
+# Launch the interactive TUI dashboard
+sessionbase dashboard
+sb dashboard  # shorthand alias
+
+# Browse and manage all your sessions
+# - Search by content or tags
+# - Filter by AI platform
+# - View session details and metadata
+# - Push sessions directly from the interface
+```
+
 ### CLI Commands
 
 ```bash
-# Launch interactive dashboard
-sessionbase dashboard
-
-# List all sessions
+# List all sessions (local and remote)
 sessionbase ls --global
+sb ls --global
 
 # Push private session with metadata
 sessionbase push --claude --title "Debug Session" --tags "debugging,api" --private
+sb push --claude --title "Debug Session" --tags "debugging,api" --private
 
 # Push specific file
 sessionbase push /path/to/session.json
+sb push /path/to/session.json
 ```
 
 ### MCP Server (Natural Language)
@@ -236,6 +282,9 @@ npm link
 # Verify installation
 sessionbase --help
 sessionbase --version
+
+# Test the TUI dashboard
+sessionbase dashboard
 ```
 
 ### Unlink (when done testing)

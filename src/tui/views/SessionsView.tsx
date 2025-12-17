@@ -67,51 +67,31 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   }
 
   return (
-    <Box flexDirection="column" padding={1}>
-      {/* Header */}
-      <Box marginBottom={1}>
-        <Text bold color="cyan">
-          Sessions Browser
+    <Box flexDirection="column" padding={1} gap={1}>
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text bold color="cyan">Sessions Browser</Text>
+        <Text dimColor>
+          Filters: Platform={platforms.find(p => p.key === selectedPlatform)?.label || 'All'}
+          {searchQuery ? <Text> · Query="{searchQuery}"</Text> : null} · Sort:{' '}
+          {sortOrder === 'recent'
+            ? 'Recent ▸'
+            : sortOrder === 'oldest'
+            ? 'Oldest ▸'
+            : 'Title ▸'}
         </Text>
       </Box>
 
-      {/* Filters line */}
-      <Box marginBottom={1} flexDirection="column">
-        <Text>
-          Filters:{' '}
-          <Text color="cyan">
-            Platform={platforms.find(p => p.key === selectedPlatform)?.label || 'All'}
-          </Text>
-          {searchQuery ? (
-            <Text>
-              {' '}· <Text color="cyan">Query="{searchQuery}"</Text>
-            </Text>
-          ) : null}{' '}
-          <Text dimColor>[Esc clears]</Text>
-        </Text>
-        <Text>
-          Sort: <Text color="cyan">
-            {sortOrder === 'recent'
-              ? 'Recent ▸'
-              : sortOrder === 'oldest'
-              ? 'Oldest ▸'
-              : 'Title ▸'}
-          </Text>{' '}
-          <Text dimColor>(press s to cycle)</Text>
-        </Text>
-      </Box>
-
-      {/* Search Bar */}
-      <Box marginBottom={1}>
+      <Box flexDirection="row" alignItems="center" gap={2}>
         <SearchBar
           value={searchDraft}
           onChange={onSearchDraftChange}
           isFocused={isSearchFocused}
+          placeholder="Search (Enter to apply, Esc to clear)"
         />
+        <Text dimColor>/ to focus • Tab to toggle focus</Text>
       </Box>
 
-      {/* Platform Filter Buttons */}
-      <Box marginBottom={1} gap={1}>
+      <Box flexDirection="row" gap={1} flexWrap="wrap">
         {platforms.map((platform) => {
           const isSelected = selectedPlatform === platform.key;
           return (
@@ -126,29 +106,23 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             </Box>
           );
         })}
-      </Box>
-      <Box marginBottom={1}>
         <Text dimColor>
-          Press 'a' for All, 'c' for Claude, 'g' for Gemini, 'q' for Q Chat, 'x' for Codex
+          a/c/g/q/x to switch • s to cycle sort
         </Text>
       </Box>
 
-      {/* Session Count */}
-      <Box
-        borderStyle="single"
-        borderColor="gray"
-        paddingX={1}
-        marginBottom={1}
-      >
+      <Box borderStyle="single" borderColor="gray" paddingX={1} paddingY={0}>
         <Text>
           {sessions.length} session{sessions.length !== 1 ? 's' : ''} found
+          {detailOpen && selectedSessionIndex >= 0
+            ? ` • Viewing ${selectedSessionIndex + 1}/${sessions.length}`
+            : ''}
         </Text>
       </Box>
 
-      {/* List + Detail split */}
       {sessions.length > 0 ? (
-        <Box flexDirection="row" flexGrow={1} gap={1}>
-          <Box width={detailOpen ? '50%' : '100%'} flexDirection="column">
+        <Box flexDirection="row" gap={1}>
+          <Box width={detailOpen ? '55%' : '100%'} flexDirection="column">
             <SessionList
               sessions={sessions}
               selectedIndex={selectedSessionIndex}
@@ -157,7 +131,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
           </Box>
           {detailOpen && (
             <Box
-              width="50%"
+              width="45%"
               borderStyle="round"
               borderColor="cyan"
               padding={1}
@@ -218,10 +192,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
         </Box>
       )}
 
-      {/* Navigation Hint */}
-      <Box marginTop={1}>
+      <Box>
         <Text dimColor>
-          Use ↑↓ to navigate • / to search • Tab to toggle focus • Enter to view details • Esc to close detail
+          ↑/↓ navigate • Enter open detail • Esc close • / search • Tab toggle focus • q to quit (on Dashboard)
         </Text>
       </Box>
     </Box>
