@@ -18,15 +18,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <Box>
       <Text color="cyan">Search: </Text>
-      {isFocused ? (
-        <TextInput
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-        />
-      ) : (
-        <Text dimColor>{value || placeholder}</Text>
-      )}
+      <TextInput
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        focus={isFocused}
+      />
     </Box>
   );
 };
