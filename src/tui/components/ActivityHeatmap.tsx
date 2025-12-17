@@ -44,15 +44,15 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activity }) =>
   const maxCount = Math.max(...last28Days.map(d => d.count), 1);
   
   const getBlock = (count: number): string => {
-    if (count === -1) return ' '; // Placeholder
-    if (count === 0) return '░';
-    
-    // Color intensity based on count
+    if (count === -1) return '  '; // Placeholder (double-width)
+    if (count === 0) return '░░';
+
+    // Color intensity based on count (double-width blocks)
     const intensity = count / maxCount;
-    if (intensity >= 0.75) return '█';
-    if (intensity >= 0.5) return '▓';
-    if (intensity >= 0.25) return '▒';
-    return '░';
+    if (intensity >= 0.75) return '██';
+    if (intensity >= 0.5) return '▓▓';
+    if (intensity >= 0.25) return '▒▒';
+    return '░░';
   };
   
   const getColor = (count: number): string => {
@@ -70,24 +70,28 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activity }) =>
   
   return (
     <Box flexDirection="column">
-      <Text bold>Monthly Activity</Text>
-      <Text dimColor>Last 28 days</Text>
-      <Box marginTop={1}>
-        <Text dimColor>M T W T F S S</Text>
+      {/* Day labels - wider spacing for double-width blocks */}
+      <Box marginBottom={0}>
+        <Text dimColor>M   T   W   T   F   S   S</Text>
       </Box>
-      {weeks.map((week, weekIdx) => (
-        <Box key={weekIdx}>
-          {week.map((day, dayIdx) => (
-            <Text key={dayIdx} color={getColor(day.count)}>
-              {getBlock(day.count)}{' '}
-            </Text>
-          ))}
-        </Box>
-      ))}
+
+      {/* Heatmap grid - double-width blocks */}
+      <Box flexDirection="column">
+        {weeks.map((week, weekIdx) => (
+          <Box key={weekIdx}>
+            {week.map((day, dayIdx) => (
+              <Text key={dayIdx} color={getColor(day.count)}>
+                {getBlock(day.count)}{dayIdx < 6 ? ' ' : ''}
+              </Text>
+            ))}
+          </Box>
+        ))}
+      </Box>
+
+      {/* Compact inline legend */}
       <Box marginTop={1}>
-        <Text>
-          <Text color="cyan">🔥 </Text>
-          <Text>{activeDays} active days</Text>
+        <Text dimColor>
+          Legend: <Text color="cyan">██</Text> high <Text color="cyan">▓▓</Text> med <Text color="cyan">▒▒</Text> low <Text color="cyan">░░</Text> none
         </Text>
       </Box>
     </Box>

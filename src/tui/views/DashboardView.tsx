@@ -4,7 +4,6 @@ import Spinner from 'ink-spinner';
 import { formatDistanceToNow } from 'date-fns';
 import { SessionStats } from '../types.js';
 import { ActivityHeatmap } from '../components/ActivityHeatmap.js';
-import { StatsCard } from '../components/StatsCard.js';
 import { SessionInfo } from '../../platforms/types.js';
 
 interface DashboardViewProps {
@@ -72,119 +71,166 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, isLoading, 
     ? `${mostActiveDayEntry.count} on ${mostActiveDayEntry.date.toLocaleDateString()}`
     : '—';
 
+  // Calculate streak (consecutive days with activity)
+  const calculateStreak = (): number => {
+    let streak = 0;
+    const sortedActivity = [...stats.recentActivity].reverse(); // Most recent first
+    for (const day of sortedActivity) {
+      if (day.count > 0) {
+        streak++;
+      } else if (streak > 0) {
+        break; // Stop counting once we hit a gap
+      }
+    }
+    return streak;
+  };
+
+  // Calculate average sessions per active day
+  const avgSessionsPerDay = recentCount > 0
+    ? (stats.recentActivity.reduce((sum, day) => sum + day.count, 0) / recentCount).toFixed(1)
+    : '0';
+
+  const currentStreak = calculateStreak();
+
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Header */}
-      <Box marginBottom={1}>
-        <Text bold color="cyan" fontSize={16}>
-          Dashboard
-        </Text>
-      </Box>
-
-      {/* Summary Bar - compact single row */}
+      {/* Header with inline stats */}
       <Box
         borderStyle="round"
         borderColor="cyan"
-        paddingX={1}
+        paddingX={2}
         paddingY={0}
+        justifyContent="space-between"
         marginBottom={1}
-        gap={1}
       >
-        <StatsCard label="Total" value={stats.totalSessions} color="cyan" />
-        <StatsCard label="Latest" value={latestSession} color="green" />
-        <StatsCard label="Platforms" value={platformCount} color="yellow" />
-        <StatsCard label="Active" value={recentCount} color="magenta" />
+        <Box>
+          <Text bold color="cyan">📊 Dashboard</Text>
+        </Box>
+        <Box gap={2}>
+          <Text>
+            <Text dimColor>Sessions: </Text>
+            <Text bold color="cyan">{stats.totalSessions}</Text>
+          </Text>
+          <Text dimColor>|</Text>
+          <Text>
+            <Text dimColor>Latest: </Text>
+            <Text bold color="green">{latestSession}</Text>
+          </Text>
+          <Text dimColor>|</Text>
+          <Text>
+            <Text dimColor>Platforms: </Text>
+            <Text bold color="yellow">{platformCount}</Text>
+          </Text>
+          <Text dimColor>|</Text>
+          <Text>
+            <Text dimColor>Active days: </Text>
+            <Text bold color="magenta">{recentCount}</Text>
+          </Text>
+        </Box>
       </Box>
 
-      {/* Balanced Row: Platform (left) + Activity (right) */}
+      {/* Two-column layout: Left content stack | Right activity */}
       <Box
         borderStyle="round"
         borderColor="cyan"
-        padding={1}
-        marginBottom={1}
-        flexDirection="row"
+        padding={2}
         gap={2}
       >
-        {/* Platform Breakdown */}
-        <Box flexDirection="column" width="50%" minWidth={28}>
-          <Text bold marginBottom={1}>
-            Platform Breakdown
-          </Text>
-          {Object.keys(stats.sessionsByPlatform).length > 0 ? (
-            Object.entries(stats.sessionsByPlatform)
-              .sort(([, a], [, b]) => b - a)
-              .map(([platform, count]) => (
-                <Box key={platform} justifyContent="space-between">
-                  <Text>
-                    {getPlatformEmoji(platform)} {getPlatformName(platform)}
-                  </Text>
-                  <Text bold color="cyan">
-                    {count}
-                  </Text>
-                </Box>
-              ))
-          ) : (
-            <Text dimColor>No sessions found</Text>
+        {/* Left Column: Platform Breakdown & Recent Sessions */}
+        <Box flexDirection="column" flexGrow={1} minWidth={40}>
+          {/* Platform Breakdown */}
+          <Box flexDirection="column" marginBottom={2}>
+            <Text bold marginBottom={1}>Platform Breakdown</Text>
+            {Object.keys(stats.sessionsByPlatform).length > 0 ? (
+              <Box flexDirection="column">
+                {Object.entries(stats.sessionsByPlatform)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([platform, count]) => {
+                    const name = `${getPlatformEmoji(platform)} ${getPlatformName(platform)}`;
+                    const dots = '.'.repeat(Math.max(2, 35 - name.length - count.toString().length));
+                    return (
+                      <Text key={platform}>
+                        {name} <Text dimColor>{dots}</Text> <Text bold color="cyan">{count}</Text>
+                      </Text>
+                    );
+                  })}
+              </Box>
+            ) : (
+              <Text dimColor>No sessions found</Text>
+            )}
+          </Box>
+
+          {/* Recent Sessions */}
+          {recentSessions && recentSessions.length > 0 && (
+            <Box flexDirection="column">
+              <Text bold marginBottom={1}>Recent Sessions</Text>
+              <Box flexDirection="column" gap={1}>
+                {recentSessions.slice(0, 4).map((session) => (
+                  <Box key={session.filePath} flexDirection="column">
+                    <Text>
+                      {getPlatformEmoji(session.platform || '')}{' '}
+                      {(session.firstMessagePreview || session.title || 'Untitled').slice(0, 35)}
+                      {(session.firstMessagePreview || session.title || '').length > 35 ? '…' : ''}
+                    </Text>
+                    <Text dimColor>
+                      {session.messageCount} msgs • {formatDistanceToNow(session.lastModified, { addSuffix: true })}
+                    </Text>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
           )}
         </Box>
 
-        {/* Activity */}
-        <Box flexDirection="column" flexGrow={1}>
-          <Text bold marginBottom={1}>
-            Activity (Last 28 days)
+        {/* Right Column: Activity Heatmap */}
+        <Box flexDirection="column" minWidth={35}>
+          <Text bold marginBottom={1}>Activity (Last 28 days)</Text>
+          <Text dimColor marginBottom={1}>
+            Most active: {mostActivePlatform}
           </Text>
           <Text dimColor marginBottom={1}>
-            Most active: {mostActivePlatform} | Busiest day: {mostActiveDay}
+            Busiest day: {mostActiveDay}
           </Text>
+
           <ActivityHeatmap activity={stats.recentActivity} />
-          <Box marginTop={1} flexDirection="row" gap={1}>
-            <Text dimColor>Legend:</Text>
-            <Text color="cyan">█</Text>
-            <Text dimColor>high</Text>
-            <Text color="cyan">▓</Text>
-            <Text dimColor>med</Text>
-            <Text color="cyan">▒</Text>
-            <Text dimColor>low</Text>
-            <Text color="cyan">░</Text>
-            <Text dimColor>none</Text>
+
+          {/* Additional stats - compact 2-line layout */}
+          <Box flexDirection="column" marginTop={1} gap={0}>
+            <Text>
+              <Text color="yellow">🔥 </Text>
+              <Text bold color="cyan">{recentCount}</Text>
+              <Text> active days</Text>
+              {currentStreak > 0 && (
+                <>
+                  <Text>  </Text>
+                  <Text color="cyan">⚡ </Text>
+                  <Text>Streak: </Text>
+                  <Text bold color="cyan">{currentStreak}</Text>
+                  <Text> days</Text>
+                </>
+              )}
+            </Text>
+            <Text>
+              <Text color="green">📈 </Text>
+              <Text>Best: </Text>
+              <Text bold color="cyan">{mostActiveDayEntry?.count || 0}</Text>
+              <Text> on {mostActiveDayEntry?.date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) || '—'}</Text>
+              <Text>  </Text>
+              <Text color="magenta">📊 </Text>
+              <Text>Avg: </Text>
+              <Text bold color="cyan">{avgSessionsPerDay}</Text>
+              <Text>/day</Text>
+            </Text>
           </Box>
         </Box>
       </Box>
 
-      {/* Recent Sessions (compact, optional) */}
-      {recentSessions && recentSessions.length > 0 && (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          padding={1}
-          marginBottom={1}
-          flexDirection="column"
-          gap={0}
-        >
-          <Text bold marginBottom={1}>Recent Sessions</Text>
-          {recentSessions.slice(0, 3).map((session) => (
-            <Box key={session.filePath} flexDirection="column" marginBottom={0}>
-              <Text>
-                {getPlatformEmoji(session.platform || '')}{' '}
-                {(session.firstMessagePreview || session.title || 'Untitled').slice(0, 50)}
-                {(session.firstMessagePreview || session.title || '').length > 50 ? '…' : ''}
-              </Text>
-              <Text dimColor>
-                💬 {session.messageCount} | {formatDistanceToNow(session.lastModified, { addSuffix: true })} | {session.filePath}
-              </Text>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {/* Footer Note */}
-      {stats.lastPushDate && (
-        <Box marginTop={2}>
-          <Text dimColor>
-            Last session: {stats.lastPushDate.toLocaleDateString()}
-          </Text>
-        </Box>
-      )}
+      {/* Footer */}
+      <Box marginTop={1} justifyContent="center">
+        <Text dimColor>
+          <Text color="cyan">Tab</Text> Switch View • <Text color="cyan">q</Text> Quit
+        </Text>
+      </Box>
     </Box>
   );
 };
