@@ -25,6 +25,7 @@ import { pushCommand } from './commands/push.js';
 import { whoamiCommand } from './commands/whoami.js';
 import { logoutCommand } from './commands/logout.js';
 import { deleteCommand } from './commands/delete.js';
+import { dashboardCommand } from './commands/dashboard.js';
 
 program.addCommand(lsCommand);
 program.addCommand(loginCommand);
@@ -32,6 +33,7 @@ program.addCommand(pushCommand);
 program.addCommand(whoamiCommand);
 program.addCommand(logoutCommand);
 program.addCommand(deleteCommand);
+program.addCommand(dashboardCommand);
 
 // Process CLI commands
 program.parseAsync(process.argv).catch((error) => {
