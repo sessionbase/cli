@@ -2,42 +2,13 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { SessionInfo } from '../../platforms/types.js';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
+import { getPlatformEmoji, getPlatformName } from '../constants.js';
 
 interface SessionListProps {
   sessions: SessionInfo[];
   selectedIndex: number;
   maxHeight?: number;
 }
-
-const getPlatformEmoji = (platform: string): string => {
-  switch (platform) {
-    case 'claude-code':
-      return '🟠';
-    case 'gemini-cli':
-      return '🔷';
-    case 'qchat':
-      return '🤖';
-    case 'codex':
-      return '💜';
-    default:
-      return '💬';
-  }
-};
-
-const getPlatformName = (platform: string): string => {
-  switch (platform) {
-    case 'claude-code':
-      return 'Claude Code';
-    case 'gemini-cli':
-      return 'Gemini CLI';
-    case 'qchat':
-      return 'Q Chat';
-    case 'codex':
-      return 'Codex';
-    default:
-      return 'Unknown';
-  }
-};
 
 export const SessionList: React.FC<SessionListProps> = ({
   sessions,

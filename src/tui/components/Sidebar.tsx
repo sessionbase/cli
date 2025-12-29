@@ -8,6 +8,10 @@ interface SidebarProps {
   userName?: string | null;
 }
 
+const SIDEBAR_WIDTH = 20;
+const SIDEBAR_PADDING = 2; // paddingX (left + right)
+const SEPARATOR_WIDTH = SIDEBAR_WIDTH - SIDEBAR_PADDING;
+
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, isAuthenticated, userName }) => {
   const menuItems: Array<{ key: View; label: string; shortcut: string }> = [
     { key: 'dashboard', label: 'Dashboard', shortcut: '1' },
@@ -31,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, isAuthenticated, 
 
       {/* Separator */}
       <Box marginBottom={1}>
-        <Text dimColor>{'─'.repeat(18)}</Text>
+        <Text dimColor>{'─'.repeat(SEPARATOR_WIDTH)}</Text>
       </Box>
 
       {/* Navigation Menu with shortcuts */}
@@ -52,7 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, isAuthenticated, 
 
       {/* Separator */}
       <Box marginBottom={1}>
-        <Text dimColor>{'─'.repeat(18)}</Text>
+        <Text dimColor>{'─'.repeat(SEPARATOR_WIDTH)}</Text>
       </Box>
 
       {/* Compact Auth Status */}
@@ -66,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, isAuthenticated, 
 
       {/* Separator */}
       <Box marginBottom={1}>
-        <Text dimColor>{'─'.repeat(18)}</Text>
+        <Text dimColor>{'─'.repeat(SEPARATOR_WIDTH)}</Text>
       </Box>
 
       {/* Additional Shortcuts */}

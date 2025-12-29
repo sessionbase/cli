@@ -5,6 +5,7 @@ import { SessionInfo } from '../../platforms/types.js';
 import { SearchBar } from '../components/SearchBar.js';
 import { SessionList } from '../components/SessionList.js';
 import { formatDistanceToNow } from 'date-fns';
+import { PLATFORMS } from '../constants.js';
 
 const PAGE_LINES = 20;
 const TRUNC_LINE = 120;
@@ -48,13 +49,6 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   detailLoading,
   detailError,
 }) => {
-  const platforms = [
-    { key: 'all', label: 'All', emoji: '📋' },
-    { key: 'claude-code', label: 'Claude', emoji: '🟠' },
-    { key: 'gemini-cli', label: 'Gemini', emoji: '🔷' },
-    { key: 'qchat', label: 'Q Chat', emoji: '🤖' },
-    { key: 'codex', label: 'Codex', emoji: '💜' },
-  ];
 
   if (isLoading) {
     return (
@@ -71,7 +65,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       <Box flexDirection="row" justifyContent="space-between">
         <Text bold color="cyan">Sessions Browser</Text>
         <Text dimColor>
-          Filters: Platform={platforms.find(p => p.key === selectedPlatform)?.label || 'All'}
+          Filters: Platform={PLATFORMS.find(p => p.key === selectedPlatform)?.label || 'All'}
           {searchQuery ? <Text> · Query="{searchQuery}"</Text> : null} · Sort:{' '}
           {sortOrder === 'recent'
             ? 'Recent ▸'
@@ -92,7 +86,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       </Box>
 
       <Box flexDirection="row" gap={1} flexWrap="wrap">
-        {platforms.map((platform) => {
+        {PLATFORMS.map((platform) => {
           const isSelected = selectedPlatform === platform.key;
           return (
             <Box key={platform.key}>
@@ -140,7 +134,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             >
               <Text bold color="cyan">Session Details</Text>
               <Text dimColor>
-                m: more/less • [{`[`}/{`]`} or PageUp/PageDown]: page transcript • Esc: close detail
+                m: more/less • [ / ] or PageUp/PageDown: page transcript • Esc: close detail
               </Text>
               {detailLoading && (
                 <Text><Text color="cyan"><Spinner type="dots" /></Text> Loading detail...</Text>
@@ -218,7 +212,7 @@ function renderTranscript(detail: any, page: number) {
         <Text key={`${start}-${idx}`} dimColor>{maybeTrunc(line)}</Text>
       ))}
       <Text dimColor marginTop={1}>
-        Page {page + 1} / {totalPages} ({lines.length} lines) • use [{`[`}/{`]`} or PageUp/PageDown]
+        Page {page + 1} / {totalPages} ({lines.length} lines) • use [ / ] or PageUp/PageDown
       </Text>
     </Box>
   );

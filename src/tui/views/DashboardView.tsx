@@ -5,42 +5,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { SessionStats } from '../types.js';
 import { ActivityHeatmap } from '../components/ActivityHeatmap.js';
 import { SessionInfo } from '../../platforms/types.js';
+import { getPlatformEmoji, getPlatformName } from '../constants.js';
 
 interface DashboardViewProps {
   stats: SessionStats | null;
   isLoading: boolean;
   recentSessions?: SessionInfo[];
 }
-
-const getPlatformEmoji = (platform: string): string => {
-  switch (platform) {
-    case 'claude-code':
-      return '🟠';
-    case 'gemini-cli':
-      return '🔷';
-    case 'qchat':
-      return '🤖';
-    case 'codex':
-      return '💜';
-    default:
-      return '💬';
-  }
-};
-
-const getPlatformName = (platform: string): string => {
-  switch (platform) {
-    case 'claude-code':
-      return 'Claude Code';
-    case 'gemini-cli':
-      return 'Gemini CLI';
-    case 'qchat':
-      return 'Q Chat';
-    case 'codex':
-      return 'Codex';
-    default:
-      return platform;
-  }
-};
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ stats, isLoading, recentSessions }) => {
   if (isLoading || !stats) {

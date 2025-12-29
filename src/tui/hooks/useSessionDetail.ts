@@ -70,18 +70,12 @@ export function useSessionDetail(session: SessionInfo | null) {
         };
 
         cacheRef.current.set(cacheKey, data);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/2512feb5-b2b3-442f-865d-ae88255c8b60',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'m-toggle',hypothesisId:'H3',location:'useSessionDetail',message:'detail-loaded',data:{filePath:session.filePath,previewCount:previewLines.length,fullCount:fullLines.length},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         if (!cancelled) {
           setDetail(data);
         }
       } catch (err: any) {
         if (!cancelled) {
           setError(err?.message || 'Failed to load session detail');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/2512feb5-b2b3-442f-865d-ae88255c8b60',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'m-toggle',hypothesisId:'H3',location:'useSessionDetail',message:'detail-error',data:{filePath:session?.filePath || null,error:err?.message || 'unknown'},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           setDetail(null);
         }
       } finally {
